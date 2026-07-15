@@ -1,0 +1,256 @@
+---
+/**
+ * /wiki/compare/[a]-vs-[b] — programmatic comparison page (master plan §2.6)
+ * URL pattern: /wiki/compare/n8n-vs-zapier
+ *
+ * Takes two entries from the wiki and renders a side-by-side.
+ * If both exist in the wiki: render their content + an infobox table.
+ * If only one exists: render that entry with a CTA to suggest the other.
+ */
+import { getCollection, getEntry, type CollectionEntry } from 'astro:content';
+import Base from '~/layouts/Base.astro';
+
+type Wiki = CollectionEntry<'wiki'>;
+
+export async function getStaticPaths() {
+  const all = await getCollection('wiki');
+  const slugs = all.map((e: Wiki) => e.slug!.toLowerCase());
+  const paths: { params: { a: string; b: string }; props: { aEntry?: Wiki; bEntry?: Wiki; aKey: string; bKey: string } }[] = [];
+
+  // Generate every unordered pair from current entries
+  for (let i = 0; i < all.length; i++) {
+    for (let j = i + 1; j < all.length; j++) {
+      const a = slugs[i]!;
+      const b = slugs[j]!;
+      paths.push({
+        params: { a, b },
+        props: { aEntry: all[i], bEntry: all[j], aKey: a, bKey: b },
+      });
+    }
+  }
+  return paths;
+}
+
+interface Props {
+  aEntry?: Wiki;
+  bEntry?: Wiki;
+  aKey: string;
+  bKey: string;
+}
+const { aEntry, bEntry, aKey, bKey } = Astro.props;
+
+const titleA = aEntry?.data.title ?? aKey;
+const titleB = bEntry?.data.title ?? bKey;
+const summaryA = aEntry?.data.summary ?? '';
+const summaryB = bEntry?.data.summary ?? '';
+
+// Pre-compute infobox rows so we don't fight Astro's JSX/TSX generic parser.
+const infoboxRows: { label: string; a: string; b: string }[] = (() => {
+  if (!aEntry || !bEntry) return [];
+  const out: { label: string; a: string; b: string }[] = [];
+  const ibA = aEntry.data.infobox ?? {};
+  const ibB = bEntry.data.infobox ?? {};
+  const keys = new Set([...Object.keys(ibA), ...Object.keys(ibB)]);
+  for (const k of keys) {
+    const vA = ibA[k as keyof typeof ibA];
+    const vB = ibB[k as keyof typeof ibB];
+    out.push({
+      label: k.replace(/_/g, ' '),
+      a: vA ? String(vA) : '—',
+      b: vB ? String(vB) : '—',
+    });
+  }
+  return out;
+})();
+---
+
+<Base
+  title={`${titleA} vs ${titleB} — wiki of automation`}
+  description={`Head-to-head comparison of ${titleA} and ${titleB}: features, license, language, pricing, when to use each.`}
+>
+  <article class="compare">
+    <header class="page-hero">
+      <div class="breadcrumb"><a href="/wiki">Wiki</a> · Compare</div>
+      <h1>
+        <span class="vs-a">{titleA}</span>
+        <span class="vs-mid">vs</span>
+        <span class="vs-b">{titleB}</span>
+      </h1>
+    </header>
+
+    <section class="compare-grid">
+      <div class="card a">
+        <div class="card-eyebrow">A</div>
+        <h2>{titleA}</h2>
+        {summaryA && <p>{summaryA}</p>}
+        {aEntry && <a class="more" href={`/wiki/${aEntry.data.category}/${aEntry.slug}`}>Read full entry →</a>}
+      </div>
+      <div class="card b">
+        <div class="card-eyebrow">B</div>
+        <h2>{titleB}</h2>
+        {summaryB && <p>{summaryB}</p>}
+        {bEntry && <a class="more" href={`/wiki/${bEntry.data.category}/${bEntry.slug}`}>Read full entry →</a>}
+      </div>
+    </section>
+
+    {aEntry && bEntry && infoboxRows.length > 0 && (
+      <section class="compare-detail">
+        <table>
+          <thead>
+            <tr><th></th><th>{titleA}</th><th>{titleB}</th></tr>
+          </thead>
+          <tbody>
+            {infoboxRows.map((r) => (
+              <tr>
+                <td class="label">{r.label}</td>
+                <td>{r.a}</td>
+                <td>{r.b}</td>
+              </tr>
+            ))}
+            <tr>
+              <td class="label">category</td>
+              <td>{aEntry.data.category}</td>
+              <td>{bEntry.data.category}</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+    )}
+
+    <section class="cta">
+      <p>
+        Don't see your favorite comparison? Open an issue or <a href="/submit">submit a request</a>.
+      </p>
+    </section>
+  </article>
+</Base>
+
+<style>
+  .compare {
+    max-width: var(--max-content);
+    margin: 0 auto;
+    padding: calc(var(--nav-height) + 60px) 36px 100px;
+  }
+  .breadcrumb {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .breadcrumb a { color: var(--cyan); }
+  h1 {
+    font-size: clamp(28px, 5vw, 48px);
+    margin-top: 14px;
+    margin-bottom: 32px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 14px;
+  }
+  .vs-a, .vs-b {
+    font-weight: 600;
+  }
+  .vs-a { color: var(--lime); }
+  .vs-mid {
+    color: var(--muted);
+    font-family: var(--font-mono);
+    font-size: 0.6em;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+  .vs-b { color: var(--cyan); }
+
+  .compare-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 22px;
+  }
+  @media (max-width: 700px) {
+    .compare-grid { grid-template-columns: 1fr; }
+  }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px 28px;
+    position: relative;
+  }
+  .card.a { border-color: var(--lime); }
+  .card.b { border-color: var(--cyan); }
+  .card-eyebrow {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--muted-2);
+    letter-spacing: 0.1em;
+    margin-bottom: 8px;
+  }
+  .card h2 {
+    font-size: 22px;
+    margin-bottom: 10px;
+  }
+  .card p {
+    color: var(--muted);
+    font-size: 14.5px;
+    line-height: 1.55;
+    margin-bottom: 14px;
+  }
+  .more {
+    color: var(--lime);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .compare-detail {
+    margin-top: 48px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  thead { background: var(--bg-2); }
+  th {
+    text-align: left;
+    padding: 14px 18px;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-family: var(--font-mono);
+    color: var(--muted);
+    border-bottom: 1px solid var(--border);
+  }
+  td {
+    padding: 12px 18px;
+    font-size: 14px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  .label {
+    color: var(--muted);
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    text-transform: capitalize;
+  }
+  td:not(.label) {
+    word-break: break-word;
+  }
+  tr:last-child td { border-bottom: none; }
+
+  .cta {
+    margin-top: 40px;
+    color: var(--muted);
+    text-align: center;
+    font-size: 14px;
+  }
+  .cta a {
+    color: var(--lime);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+</style>

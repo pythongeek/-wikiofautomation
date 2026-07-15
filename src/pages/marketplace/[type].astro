@@ -1,0 +1,117 @@
+---
+/**
+ * /marketplace/[type] — type-filtered listing
+ */
+import { getCollection, type CollectionEntry } from 'astro:content';
+import Base from '~/layouts/Base.astro';
+
+export async function getStaticPaths() {
+  const VALID = ['agent', 'workflow', 'ai-os', 'app', 'prompt'] as const;
+  return VALID.map((t: typeof VALID[number]) => ({ params: { type: t === 'ai-os' ? 'ai-os' : `${t}s` } }));
+}
+
+type Listing = CollectionEntry<'marketplace'>;
+const { type } = Astro.params;
+const all = await getCollection('marketplace', (e: Listing) => e.data.status === 'live');
+const filtered: Listing[] = all.filter((e: Listing) => {
+  const t = e.data.type;
+  if (type === 'ai-os') return t === 'ai-os';
+  return `${t}s` === type;
+});
+filtered.sort((a: Listing, b: Listing) => b.data.uses - a.data.uses);
+---
+
+<Base
+  title={`${type} — Marketplace`}
+  description={`${type} listings in the wiki of automation marketplace.`}
+>
+  <div class="page-hero">
+    <div class="breadcrumb"><a href="/marketplace">Marketplace</a> · {type}</div>
+    <h1>{type}</h1>
+    <p class="lead">{filtered.length} live listings in this category.</p>
+  </div>
+
+  <section class="grid">
+    {filtered.map(item => (
+      <article class="card">
+        <div class="card-top">
+          <div class="card-icon">{item.data.icon ?? '⚡'}</div>
+          <span class={`badge ${item.data.pricing}`}>{item.data.pricing.toUpperCase()}</span>
+        </div>
+        <h3>{item.data.title}</h3>
+        <p>{item.data.summary ?? ''}</p>
+        <div class="card-meta">
+          <span class="star">★ {item.data.rating.toFixed(1)}</span>
+          <span>{item.data.uses} uses</span>
+        </div>
+      </article>
+    ))}
+  </section>
+</Base>
+
+<style>
+  .page-hero {
+    max-width: var(--max-content);
+    margin: 0 auto;
+    padding: calc(var(--nav-height) + 60px) 36px 40px;
+  }
+  .breadcrumb {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .breadcrumb a { color: var(--cyan); }
+  h1 {
+    font-size: clamp(32px, 5vw, 50px);
+    margin-top: 12px;
+    margin-bottom: 10px;
+    text-transform: capitalize;
+  }
+  .lead { color: var(--muted); font-size: 16px; }
+  section.grid {
+    max-width: var(--max-content);
+    margin: 0 auto;
+    padding: 24px 36px 100px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+    gap: 18px;
+  }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .card-top { display: flex; justify-content: space-between; align-items: center; }
+  .card-icon {
+    width: 34px; height: 34px;
+    border-radius: 9px;
+    background: var(--surface-2);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+  }
+  .badge {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    padding: 4px 9px;
+    border-radius: var(--radius-pill);
+  }
+  .badge.free { background: rgba(61, 255, 176, 0.12); color: var(--mint); }
+  .badge.paid { background: rgba(255, 177, 61, 0.12); color: var(--amber); }
+  .badge.freemium { background: rgba(91, 76, 255, 0.16); color: var(--indigo-soft); }
+  .card h3 { font-size: 16px; }
+  .card p { color: var(--muted); font-size: 13px; line-height: 1.5; }
+  .card-meta {
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    color: var(--muted-2);
+  }
+  .star { color: var(--lime); }
+</style>

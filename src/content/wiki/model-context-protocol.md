@@ -10,7 +10,8 @@ sources:
     url: https://modelcontextprotocol.io/
 infobox:
   kind: Open protocol
-  first_release: 2024-11
+  first_release: '2024-11'
+  language: JSON-RPC, TypeScript SDK, Python SDK
   license: MIT
   repo: https://github.com/modelcontextprotocol/specification
 ---
@@ -30,30 +31,17 @@ A model that speaks MCP can:
 - Invoke tools with structured input/output
 - Stream resources (files, database rows, API responses) through the same connection
 
-## How it works
-
-An MCP server exposes JSON-RPC endpoints. A host (e.g. Claude Desktop, an IDE plugin, an in-app agent runtime) connects to one or more servers and merges their tools into the model's context. The model picks the right tool, the host executes the call, and the result returns into the model's working memory.
-
-```
-┌────────────┐       JSON-RPC        ┌──────────────┐
-│  LLM host  │ ◄───────────────────► │  MCP server  │
-│ (agent)    │   tools + resources   │ (your data)  │
-└────────────┘                       └──────────────┘
-```
-
-The protocol is transport-agnostic — it runs over stdio (for local tools), HTTP+SSE (for remote tools), and recently streamable HTTP for higher-throughput scenarios.
-
 ## Adoption signal
 
-- Public servers from Anthropic, OpenAI, Cloudflare, Notion, Replit, Sourcegraph, Zapier, Linear, JetBrains, and dozens of community projects
+- Public servers from Anthropic, OpenAI, Cloudflare, Notion, Replit, Sourcegraph, Zapier, Linear, JetBrains
 - Cross-vendor implementations in Claude, GPT-class models via tool bridges, and most agent frameworks
-- Adoption tracked monthly at <https://mcpservers.org> and on leaderboards (varies by ecosystem)
+- Adoption tracked monthly at https://mcpservers.org
 
 ## When to use MCP
 
 Use MCP when:
 
-- You have a data source or tool you want *every* model or agent to reach without writing per-model adapters
+- You have a data source or tool you want every model or agent to reach without writing per-model adapters
 - You want runtime safety (typed schemas, capability negotiation) over prompt-engineering
 - You expect an ecosystem of third-party clients to integrate against your service
 
@@ -66,11 +54,8 @@ Skip MCP when:
 ## See also
 
 - [[n8n]] — n8n exposes MCP servers out of the box
-- [[agentic-workflows]] — the conceptual layer MCP enables
-- [[function-calling]] — the lower-level alternative most non-MCP agents use
 
 ## Sources
 
 - https://modelcontextprotocol.io/
 - https://github.com/modelcontextprotocol/specification
-- Anthropic announcement: https://www.anthropic.com/news/model-context-protocol

@@ -1,0 +1,96 @@
+---
+/**
+ * /wiki/[category] — all entries in a single category
+ */
+import { getCollection, type CollectionEntry } from 'astro:content';
+import Base from '~/layouts/Base.astro';
+
+export async function getStaticPaths() {
+  const VALID = ['agents', 'frameworks', 'protocols', 'models', 'companies', 'concepts'] as const;
+  return VALID.map((c: typeof VALID[number]) => ({ params: { category: c } }));
+}
+
+const { category } = Astro.params;
+type Wiki = CollectionEntry<'wiki'>;
+const all = await getCollection('wiki', (e: Wiki) => e.data.category === category);
+const sorted: Wiki[] = all.sort((a: Wiki, b: Wiki) => a.data.title.localeCompare(b.data.title));
+const categoryLabels: Record<string, string> = {
+  agents: 'Agents',
+  frameworks: 'Frameworks',
+  protocols: 'Protocols',
+  models: 'Models',
+  companies: 'Companies',
+  concepts: 'Concepts',
+};
+---
+
+<Base
+  title={`${categoryLabels[category!] ?? category} — Wiki`}
+  description={`All ${category} entries in the wiki of automation.`}
+>
+  <div class="page-hero">
+    <div class="breadcrumb">
+      <a href="/wiki">Wiki</a> · {categoryLabels[category!] ?? category}
+    </div>
+    <h1>{categoryLabels[category!] ?? category}</h1>
+    <p class="lead">{sorted.length} entries in this category.</p>
+  </div>
+
+  <section class="entry-list-wrap">
+    {sorted.map(entry => (
+      <a class="row" href={`/wiki/${entry.data.category}/${entry.slug}`}>
+        <div>
+          <div class="title">{entry.data.title}</div>
+          {entry.data.summary && <div class="summary">{entry.data.summary}</div>}
+        </div>
+        <div class="meta">{entry.data.updated}</div>
+      </a>
+    ))}
+  </section>
+</Base>
+
+<style>
+  .page-hero {
+    max-width: var(--max-content);
+    margin: 0 auto;
+    padding: calc(var(--nav-height) + 60px) 36px 40px;
+  }
+  .breadcrumb {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .breadcrumb a { color: var(--cyan); }
+  h1 {
+    font-size: clamp(32px, 5vw, 50px);
+    margin-top: 12px;
+    margin-bottom: 12px;
+  }
+  .lead { color: var(--muted); font-size: 17px; }
+  section.entry-list-wrap {
+    max-width: var(--max-content);
+    margin: 0 auto;
+    padding: 24px 36px 100px;
+  }
+  .row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 24px;
+    padding: 18px 0;
+    border-bottom: 1px solid var(--border);
+    color: inherit;
+    transition: padding 0.15s;
+  }
+  .row:hover { padding-left: 8px; }
+  .title { font-size: 17px; font-weight: 500; }
+  .summary { font-size: 13px; color: var(--muted); margin-top: 4px; max-width: 560px; }
+  .meta {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--muted-2);
+    flex-shrink: 0;
+  }
+</style>

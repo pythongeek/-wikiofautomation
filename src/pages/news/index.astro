@@ -1,0 +1,114 @@
+---
+/**
+ * /news — newsroom index
+ */
+import { getCollection, type CollectionEntry } from 'astro:content';
+import Base from '~/layouts/Base.astro';
+
+type News = CollectionEntry<'news'>;
+const all = await getCollection('news');
+const sorted: News[] = all.sort((a: News, b: News) => new Date(b.data.published).getTime() - new Date(a.data.published).getTime());
+
+function relTime(iso: string) {
+  const mins = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+  if (mins < 60) return `${Math.max(1, mins)}m ago`;
+  const h = Math.round(mins / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.round(h / 24)}d ago`;
+}
+---
+
+<Base
+  title="Newsroom"
+  description="Daily launches, deep dives, and benchmarks from the automation industry."
+>
+  <div class="page-hero">
+    <div class="eyebrow eyebrow-row"><span class="dot"></span><span>THE NEWSROOM</span></div>
+    <h1>Today in automation</h1>
+    <p class="lead">Launches, deep dives, and benchmark updates across the automation industry.</p>
+  </div>
+
+  <section class="list">
+    {sorted.map(post => (
+      <a class="row" href={`/news/${post.slug}`}>
+        <span class="tag">{post.data.kind.toUpperCase()}</span>
+        <div class="row-body">
+          <h2>{post.data.title}</h2>
+          {post.data.excerpt && <p>{post.data.excerpt}</p>}
+        </div>
+        <span class="time">{relTime(post.data.published)}</span>
+      </a>
+    ))}
+    {sorted.length === 0 && (
+      <div class="empty">
+        <p>Newsroom launching soon — daily automation launches, deep dives, and benchmarks.</p>
+      </div>
+    )}
+  </section>
+</Base>
+
+<style>
+  .page-hero {
+    max-width: var(--max-content);
+    margin: 0 auto;
+    padding: calc(var(--nav-height) + 60px) 36px 40px;
+  }
+  .eyebrow-row {
+    display: flex; align-items: center; gap: 8px;
+    margin-bottom: 22px;
+  }
+  .eyebrow-row .dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--cyan);
+    box-shadow: 0 0 8px var(--cyan);
+    animation: blink 1.8s infinite;
+  }
+  @keyframes blink { 0%,100%{opacity:1;} 50%{opacity:.3;} }
+  h1 { font-size: clamp(32px, 5vw, 52px); margin-bottom: 14px; }
+  .lead { color: var(--muted); font-size: 18px; max-width: 640px; line-height: 1.55; }
+
+  section.list {
+    max-width: var(--max-content);
+    margin: 0 auto;
+    padding: 24px 36px 100px;
+    border-top: 1px solid var(--border);
+  }
+  .empty {
+    text-align: center;
+    padding: 60px;
+    color: var(--muted);
+  }
+  .row {
+    display: grid;
+    grid-template-columns: 110px 1fr auto;
+    gap: 24px;
+    align-items: center;
+    padding: 22px 4px;
+    border-bottom: 1px solid var(--border);
+    color: inherit;
+    transition: background 0.2s;
+  }
+  .row:hover { background: var(--surface); }
+  .tag {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--indigo-soft);
+  }
+  h2 { font-size: 17px; font-weight: 500; margin-bottom: 4px; }
+  .row-body p {
+    color: var(--muted);
+    font-size: 13.5px;
+    line-height: 1.55;
+    margin: 0;
+  }
+  .time {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--muted-2);
+  }
+
+  @media (max-width: 700px) {
+    .row { grid-template-columns: 1fr; }
+    .tag { display: none; }
+  }
+</style>

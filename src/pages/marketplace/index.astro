@@ -1,0 +1,192 @@
+---
+/**
+ * /marketplace — full listing grid
+ */
+import { getCollection, type CollectionEntry } from 'astro:content';
+import Base from '~/layouts/Base.astro';
+
+type Listing = CollectionEntry<'marketplace'>;
+const all = await getCollection('marketplace', (e: Listing) => e.data.status === 'live');
+const sorted: Listing[] = all.sort((a: Listing, b: Listing) => b.data.uses - a.data.uses);
+
+const types = ['agents', 'workflows', 'ai-os', 'apps', 'prompts'] as const;
+const typeLabels: Record<string, string> = {
+  agents: 'Agents',
+  workflows: 'Workflows',
+  'ai-os': 'AI OS',
+  apps: 'Apps',
+  prompts: 'Prompts',
+};
+---
+
+<Base
+  title="Marketplace"
+  description="Free and paid agents, n8n workflows, AI OS stacks, hosted apps, and prompts. Try before you install."
+>
+  <div class="page-hero">
+    <div class="eyebrow eyebrow-row">
+      <span class="dot"></span>
+      <span>THE MARKETPLACE · {sorted.length} LIVE LISTINGS</span>
+    </div>
+    <h1>Find the right tool — try it, then ship it.</h1>
+    <p class="lead">Free and paid agents, n8n/Zapier/Make workflows, full AI OS stacks, and hosted mini apps. Every listing is attributed to its original author.</p>
+
+    <nav class="cat-tabs">
+      <a href="/marketplace" class="cat-tab active">All</a>
+      {types.map(t => <a href={`/marketplace/${t}`} class="cat-tab">{typeLabels[t]}</a>)}
+    </nav>
+  </div>
+
+  <section class="grid">
+    {sorted.length === 0 ? (
+      <div class="empty">
+        <p>Marketplace launching soon. <a href="/marketplace/publish">Submit the first listing →</a></p>
+      </div>
+    ) : (
+      sorted.map(item => (
+        <article class="card">
+          <div class="card-top">
+            <div class="card-icon">{item.data.icon ?? '⚡'}</div>
+            <span class={`badge ${item.data.pricing}`}>{item.data.pricing.toUpperCase()}</span>
+          </div>
+          <h3>{item.data.title}</h3>
+          <p>{item.data.summary ?? ''}</p>
+          <div class="card-meta">
+            <span class="star">★ {item.data.rating.toFixed(1)}</span>
+            <span>{item.data.uses} uses</span>
+          </div>
+          <div class="card-footer">
+            <span class="type">{item.data.type}</span>
+            <span class="attr">by {item.data.original_author}</span>
+          </div>
+        </article>
+      ))
+    )}
+  </section>
+</Base>
+
+<style>
+  .page-hero {
+    max-width: var(--max-content);
+    margin: 0 auto;
+    padding: calc(var(--nav-height) + 60px) 36px 40px;
+  }
+  .eyebrow-row {
+    margin-bottom: 22px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .eyebrow-row .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--lime);
+    box-shadow: 0 0 8px var(--lime);
+    animation: blink 1.8s infinite;
+  }
+  @keyframes blink { 0%,100%{opacity:1;} 50%{opacity:.3;} }
+  h1 {
+    font-size: clamp(32px, 5vw, 50px);
+    line-height: 1.1;
+    margin-bottom: 14px;
+  }
+  .lead {
+    color: var(--muted);
+    font-size: 18px;
+    max-width: 640px;
+    line-height: 1.55;
+    margin-bottom: 28px;
+  }
+  .cat-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .cat-tab {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    padding: 8px 14px;
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    background: var(--surface);
+    transition: all 0.15s;
+  }
+  .cat-tab:hover { color: var(--text); border-color: var(--indigo-soft); }
+  .cat-tab.active {
+    background: var(--lime);
+    color: var(--bg);
+    border-color: var(--lime);
+  }
+
+  section.grid {
+    max-width: var(--max-content);
+    margin: 0 auto;
+    padding: 30px 36px 100px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+    gap: 18px;
+  }
+  .empty {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 60px;
+    color: var(--muted);
+    background: var(--surface);
+    border: 1px dashed var(--border);
+    border-radius: var(--radius);
+  }
+  .empty a { color: var(--lime); text-decoration: underline; }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    transition: all 0.2s;
+  }
+  .card:hover { border-color: var(--indigo-soft); transform: translateY(-3px); }
+  .card-top { display: flex; justify-content: space-between; align-items: center; }
+  .card-icon {
+    width: 34px; height: 34px;
+    border-radius: 9px;
+    background: var(--surface-2);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+  }
+  .badge {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    padding: 4px 9px;
+    border-radius: var(--radius-pill);
+    letter-spacing: 0.05em;
+  }
+  .badge.free { background: rgba(61, 255, 176, 0.12); color: var(--mint); }
+  .badge.paid { background: rgba(255, 177, 61, 0.12); color: var(--amber); }
+  .badge.freemium { background: rgba(91, 76, 255, 0.16); color: var(--indigo-soft); }
+  .card h3 { font-size: 16px; }
+  .card p { color: var(--muted); font-size: 13px; line-height: 1.5; }
+  .card-meta {
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    color: var(--muted-2);
+  }
+  .star { color: var(--lime); }
+  .card-footer {
+    display: flex;
+    justify-content: space-between;
+    border-top: 1px solid var(--border);
+    padding-top: 10px;
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    color: var(--muted-2);
+  }
+  .attr { color: var(--muted); }
+  .type { color: var(--cyan); }
+</style>
