@@ -1,0 +1,107 @@
+---
+/**
+ * WikiGrid.astro — featured wiki entries on homepage
+ * Pulls `status: 'featured'` or just latest 3 from getCollection('wiki').
+ */
+import { getCollection, type CollectionEntry } from 'astro:content';
+
+type Wiki = CollectionEntry<'wiki'>;
+
+const all = await getCollection('wiki');
+const top: Wiki[] = all
+  .sort((a: Wiki, b: Wiki) => new Date(b.data.updated).getTime() - new Date(a.data.updated).getTime())
+  .slice(0, 3);
+---
+
+<section id="wiki">
+  <header class="section-head">
+    <h2>From the wiki</h2>
+    <a class="see-all" href="/wiki">Open the full index →</a>
+  </header>
+
+  {top.length === 0 ? (
+    <div class="empty">
+      <p>The wiki is just getting started. We're seeding the highest-value entries first.</p>
+    </div>
+  ) : (
+    <div class="wiki-grid">
+      {top.map(entry => (
+        <a class="wiki-card" href={`/wiki/${entry.data.category}/${entry.slug}`}>
+          <div class="eyebrow">{entry.data.category.toUpperCase()}</div>
+          <h4>{entry.data.title}</h4>
+          <p>{entry.data.summary ?? entry.body?.slice(0, 200) ?? ''}</p>
+        </a>
+      ))}
+    </div>
+  )}
+</section>
+
+<style>
+  section {
+    padding: 100px 36px;
+    max-width: var(--max-content);
+    margin: 0 auto;
+    position: relative;
+  }
+  .section-head {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    margin-bottom: 44px;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+  .section-head h2 {
+    font-size: clamp(26px, 3vw, 36px);
+  }
+  .see-all {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--cyan);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .empty {
+    text-align: center;
+    padding: 40px;
+    color: var(--muted);
+    background: var(--surface);
+    border: 1px dashed var(--border);
+    border-radius: var(--radius);
+  }
+
+  .wiki-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 18px;
+  }
+  @media (max-width: 900px) {
+    .wiki-grid { grid-template-columns: 1fr; }
+  }
+
+  .wiki-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    transition: all 0.2s ease;
+    color: inherit;
+    display: block;
+  }
+  .wiki-card:hover {
+    border-color: var(--cyan);
+  }
+  .wiki-card .eyebrow {
+    margin-bottom: 10px;
+  }
+  .wiki-card h4 {
+    font-size: 17px;
+    margin-bottom: 8px;
+  }
+  .wiki-card p {
+    color: var(--muted);
+    font-size: 13.5px;
+    line-height: 1.6;
+  }
+</style>

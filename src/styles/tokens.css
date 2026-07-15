@@ -1,0 +1,55 @@
+/* ============================================================================
+ * tokens.css — brand design system
+ * Source of truth: /root/wiki-of-automation/vault/assets/brand-palette.md
+ * Locked in master plan §2.3 (2026-07-15).
+ *
+ * Do not edit individual values here without updating
+ * vault/assets/brand-palette.md first — that file is canonical.
+ * ============================================================================ */
+
+:root {
+  /* Surfaces (backgrounds) */
+  --bg:        #0a0a0f;   /* near-black ink */
+  --bg-2:      #0e0e15;   /* slightly lighter ink (ticker strip) */
+  --surface:   #14141d;   /* cards */
+  --surface-2: #191924;   /* nested surfaces (icon wells) */
+  --border:    #26262f;   /* hairlines */
+
+  /* Brand colors */
+  --indigo:      #5b4cff;     /* primary brand */
+  --indigo-soft: #8b7dff;     /* hover/links */
+  --lime:        #c6ff3d;     /* CTA / "live" / accent */
+  --cyan:        #3de0ff;     /* secondary accent */
+  --mint:        #3dffb0;     /* success / "free" badge */
+  --amber:       #ffb13d;     /* warning / "paid" badge */
+
+  /* Text */
+  --text:    #f2f1f7;          /* primary */
+  --muted:   #8b8b9a;          /* secondary */
+  --muted-2: #5c5c6b;          /* tertiary (placeholders) */
+
+  /* Typography */
+  --font-headline: 'Space Grotesk', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  --font-body:     'Inter', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  --font-mono:     'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* Radii */
+  --radius:    14px;
+  --radius-sm: 9px;
+  --radius-lg: 20px;
+  --radius-pill: 999px;
+
+  /* Spacing scale (4 px base) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+
+  /* Layout */
+  --max-content: 1240px;
+  --nav-height: 70px;
+}

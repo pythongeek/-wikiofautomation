@@ -1,0 +1,164 @@
+---
+/**
+ * MarketplaceRow.astro — horizontally scrolling cards (Drive HTML `<div class="row">`)
+ * Shows recent marketplace items. Pulled from `getCollection('marketplace')`,
+ * filtered to `status: 'live'`, sorted by uses desc, top 6.
+ */
+import { getCollection, type CollectionEntry } from 'astro:content';
+
+type Listing = CollectionEntry<'marketplace'>;
+
+const all = await getCollection('marketplace', (e: Listing) => e.data.status === 'live');
+const top: Listing[] = all
+  .sort((a: Listing, b: Listing) => b.data.uses - a.data.uses)
+  .slice(0, 6);
+
+function formatUses(n: number) {
+  if (n >= 1000) return `${(n / 1000).toFixed(1)}k uses`;
+  return `${n} uses`;
+}
+---
+
+<section id="marketplace">
+  <header class="section-head">
+    <h2>Trending in the marketplace</h2>
+    <a class="see-all" href="/marketplace">View all listings →</a>
+  </header>
+
+  {top.length === 0 ? (
+    <div class="empty">
+      <p>Marketplace launching soon. <a href="/marketplace/publish">Submit the first listing →</a></p>
+    </div>
+  ) : (
+    <div class="row">
+      {top.map(item => (
+        <article class="card">
+          <div class="card-top">
+            <div class="card-icon">{item.data.icon ?? '⚡'}</div>
+            <span class={`badge ${item.data.pricing}`}>{item.data.pricing.toUpperCase()}</span>
+          </div>
+          <h4>{item.data.title}</h4>
+          <p>{item.data.summary ?? ''}</p>
+          <div class="card-meta">
+            <span class="star">★ {item.data.rating.toFixed(1)}</span>
+            <span>{formatUses(item.data.uses)}</span>
+          </div>
+        </article>
+      ))}
+    </div>
+  )}
+</section>
+
+<style>
+  section {
+    padding: 100px 36px;
+    max-width: var(--max-content);
+    margin: 0 auto;
+    position: relative;
+  }
+  .section-head {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    margin-bottom: 44px;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+  .section-head h2 {
+    font-size: clamp(26px, 3vw, 36px);
+  }
+  .see-all {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--cyan);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .empty {
+    text-align: center;
+    padding: 40px;
+    color: var(--muted);
+    background: var(--surface);
+    border: 1px dashed var(--border);
+    border-radius: var(--radius);
+  }
+  .empty a {
+    color: var(--lime);
+    text-decoration: underline;
+  }
+
+  .row {
+    display: flex;
+    gap: 18px;
+    overflow-x: auto;
+    padding-bottom: 10px;
+    scrollbar-width: thin;
+  }
+  .row::-webkit-scrollbar { height: 6px; }
+  .row::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 3px;
+  }
+
+  .card {
+    flex: 0 0 270px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    transition: all 0.2s ease;
+  }
+  .card:hover {
+    border-color: var(--indigo-soft);
+    transform: translateY(-3px);
+  }
+  .card-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .card-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 9px;
+    background: var(--surface-2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+  }
+  .badge {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    padding: 4px 9px;
+    border-radius: var(--radius-pill);
+    letter-spacing: 0.05em;
+  }
+  .badge.free { background: rgba(61, 255, 176, 0.12); color: var(--mint); }
+  .badge.paid { background: rgba(255, 177, 61, 0.12); color: var(--amber); }
+  .badge.freemium { background: rgba(91, 76, 255, 0.16); color: var(--indigo-soft); }
+
+  .card h4 {
+    font-size: 16px;
+  }
+  .card p {
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  .card-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    color: var(--muted-2);
+    margin-top: auto;
+  }
+  .star { color: var(--lime); }
+</style>

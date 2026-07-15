@@ -1,0 +1,101 @@
+---
+/**
+ * NetworkCanvas.astro — neural-network background animation
+ * Faithful port of the Drive HTML <script> network drawing logic.
+ * Renders an absolutely-positioned <canvas> filling the hero.
+ */
+---
+
+<canvas id="network" aria-hidden="true"></canvas>
+
+<script>
+(() => {
+  const canvas = document.getElementById('network') as HTMLCanvasElement | null;
+  if (!canvas) return;
+
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+
+  let w = 0, h = 0;
+  let nodes: { x: number; y: number; vx: number; vy: number; r: number }[] = [];
+  const dpr = window.devicePixelRatio || 1;
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function resize() {
+    if (!canvas) return;
+    w = canvas.width = canvas.offsetWidth * dpr;
+    h = canvas.height = canvas.offsetHeight * dpr;
+  }
+
+  function initNodes() {
+    if (!canvas) return;
+    const count = Math.floor((canvas.offsetWidth * canvas.offsetHeight) / 26000);
+    nodes = Array.from({ length: Math.min(count, 70) }, () => ({
+      x: Math.random() * w,
+      y: Math.random() * h,
+      vx: (Math.random() - 0.5) * 0.25 * dpr,
+      vy: (Math.random() - 0.5) * 0.25 * dpr,
+      r: Math.random() * 1.6 + 0.6,
+    }));
+  }
+
+  function draw() {
+    if (!ctx) return;
+    ctx.clearRect(0, 0, w, h);
+    // Move
+    for (const n of nodes) {
+      n.x += n.vx; n.y += n.vy;
+      if (n.x < 0 || n.x > w) n.vx *= -1;
+      if (n.y < 0 || n.y > h) n.vy *= -1;
+    }
+    // Edges
+    for (let i = 0; i < nodes.length; i++) {
+      for (let j = i + 1; j < nodes.length; j++) {
+        const a = nodes[i];
+        const b = nodes[j];
+        if (!a || !b) continue;
+        const d = Math.hypot(a.x - b.x, a.y - b.y);
+        const maxD = 150 * dpr;
+        if (d < maxD) {
+          ctx.strokeStyle = `rgba(91,76,255,${(1 - d / maxD) * 0.35})`;
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(a.x, a.y);
+          ctx.lineTo(b.x, b.y);
+          ctx.stroke();
+        }
+      }
+    }
+    // Nodes
+    for (const n of nodes) {
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, n.r * dpr, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(139,125,255,0.85)';
+      ctx.fill();
+    }
+    if (!reduceMotion) requestAnimationFrame(draw);
+  }
+
+  function start() {
+    resize();
+    initNodes();
+    draw();
+  }
+
+  window.addEventListener('resize', () => { resize(); initNodes(); });
+  // Astro ClientRouter hooks
+  document.addEventListener('astro:page-load', start);
+  start();
+})();
+</script>
+
+<style>
+  #network {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+    opacity: 0.55;
+  }
+</style>

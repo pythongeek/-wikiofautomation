@@ -1,0 +1,28 @@
+---
+/**
+ * Homepage — /  (wikiofautomation.com/)
+ * Composes Hero + Ticker + Pillars + Marketplace + WikiGrid + NewsStrip + CreatorCTA
+ * Mirrors drive-source/wiki-of-automation-homepage.html 1:1 in structure and style.
+ */
+import Base from '~/layouts/Base.astro';
+import Hero from '~/components/home/Hero.astro';
+import Ticker from '~/components/home/Ticker.astro';
+import Pillars from '~/components/home/Pillars.astro';
+import MarketplaceRow from '~/components/marketplace/MarketplaceRow.astro';
+import WikiGrid from '~/components/wiki/WikiGrid.astro';
+import NewsStrip from '~/components/news/NewsStrip.astro';
+import CreatorCTA from '~/components/home/CreatorCTA.astro';
+---
+
+<Base
+  title="The Encyclopedia of Automation"
+  description="The encyclopedia of automation — understand it, find it, ship it. AI agents, n8n workflows, MCP, and every protocol making automation real."
+>
+  <Hero />
+  <Ticker />
+  <Pillars />
+  <MarketplaceRow />
+  <WikiGrid />
+  <NewsStrip />
+  <CreatorCTA />
+</Base>

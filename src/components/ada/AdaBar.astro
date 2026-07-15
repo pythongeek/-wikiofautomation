@@ -1,0 +1,244 @@
+---
+/**
+ * AdaBar.astro — the hero ask input + chip row
+ * Typewriter placeholder cycles through prompts (port of Drive script).
+ * Chips prefill the input on click.
+ * Submits to POST /api/ada (wired in T010).
+ */
+const chips = [
+  'Find a free lead-gen agent',
+  'What is MCP?',
+  'n8n vs Zapier',
+  'Trending this week',
+];
+
+const prompts = [
+  'Ask Ada anything…',
+  'Find me a free lead-gen agent…',
+  'What is MCP?',
+  'Compare n8n vs Zapier…',
+  'Show me trending workflows this week…',
+];
+---
+
+<div class="ask">
+  <div class="ask-input" id="askInput">
+    <span class="caret">›</span>
+    <input
+      id="askField"
+      type="text"
+      placeholder="Ask Ada anything…"
+      autocomplete="off"
+      aria-label="Ask Ada anything about automation"
+    >
+    <button class="ask-send" aria-label="Send" type="button" id="askSend">↑</button>
+  </div>
+  <div class="chips">
+    {chips.map(c => <span class="chip" data-prompt={c}>{c}</span>)}
+  </div>
+  <div class="reply" id="askReply" hidden></div>
+</div>
+
+<script is:inline define:vars={{ chips, prompts }}>
+(() => {
+  const input = document.getElementById('askField');
+  const send = document.getElementById('askSend');
+  const reply = document.getElementById('askReply');
+  const inputBox = document.getElementById('askInput');
+  if (!input || !reply || !send || !inputBox) return;
+
+  function bind() {
+    document.querySelectorAll('.chip').forEach(c => {
+      c.addEventListener('click', () => {
+        input.value = c.textContent || '';
+        input.focus();
+      });
+    });
+    send.addEventListener('click', submit);
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        submit();
+      }
+    });
+    input.addEventListener('focus', () => inputBox.classList.add('active'));
+    input.addEventListener('blur', () => inputBox.classList.remove('active'));
+  }
+
+  async function submit() {
+    const q = (input.value || '').trim();
+    if (!q) return;
+    reply.hidden = false;
+    reply.textContent = 'Thinking…';
+    reply.classList.add('loading');
+    try {
+      const res = await fetch('/api/ada', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ message: q }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        reply.innerHTML = `<strong>Ada:</strong> ${escapeHtml(data.error || 'Sorry, I couldn\'t reach my knowledge base right now. Try again in a moment.')}`;
+        reply.classList.remove('loading');
+        return;
+      }
+      reply.innerHTML = renderReply(data);
+      reply.classList.remove('loading');
+    } catch (err) {
+      reply.innerHTML = `<strong>Ada:</strong> Network error. Try again in a moment.`;
+      reply.classList.remove('loading');
+    }
+  }
+
+  function escapeHtml(s) {
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function renderReply(d) {
+    const reply_ = escapeHtml(d.reply || '');
+    const links = (d.links || []).map(l =>
+      `<a class="reply-link" href="${escapeHtml(l.url)}">${escapeHtml(l.anchor || l.url)}</a>`
+    ).join(' ');
+    return `<strong>Ada:</strong> ${reply_}${links ? '<div class="reply-links">' + links + '</div>' : ''}`;
+  }
+
+  // Typewriter placeholder (matches Drive behaviour)
+  function bindTypewriter() {
+    let pIndex = 0, cIndex = 0, deleting = false;
+    function loop() {
+      if (document.activeElement === input) { setTimeout(loop, 500); return; }
+      const full = prompts[pIndex];
+      input.setAttribute('placeholder', full.slice(0, cIndex));
+      if (!deleting) {
+        cIndex++;
+        if (cIndex > full.length) { deleting = true; setTimeout(loop, 1400); return; }
+      } else {
+        cIndex--;
+        if (cIndex < 0) { deleting = false; pIndex = (pIndex + 1) % prompts.length; cIndex = 0; }
+      }
+      setTimeout(loop, deleting ? 28 : 55);
+    }
+    loop();
+  }
+
+  bind();
+  bindTypewriter();
+})();
+</script>
+
+<style>
+  .ask {
+    width: 100%;
+    max-width: 640px;
+    position: relative;
+    z-index: 2;
+  }
+
+  .ask-input {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: rgba(20, 20, 29, 0.75);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-pill);
+    padding: 8px 8px 8px 22px;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    transition: all 0.25s ease;
+  }
+  .ask-input.active {
+    border-color: var(--indigo-soft);
+    box-shadow: 0 0 0 4px rgba(91, 76, 255, 0.15), 0 0 30px rgba(61, 224, 255, 0.12);
+  }
+  .caret {
+    color: var(--muted-2);
+    font-family: var(--font-mono);
+    font-size: 15px;
+  }
+  input#askField {
+    flex: 1;
+    background: none;
+    border: none;
+    outline: none;
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 15.5px;
+    padding: 10px 0;
+  }
+  input#askField::placeholder { color: var(--muted-2); }
+
+  .ask-send {
+    width: 38px; height: 38px;
+    border-radius: 50%;
+    border: none;
+    background: var(--lime);
+    color: var(--bg);
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+  }
+  .ask-send:hover { box-shadow: 0 0 18px rgba(198, 255, 61, 0.5); }
+
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 9px;
+    justify-content: center;
+    margin-top: 16px;
+  }
+  .chip {
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    padding: 7px 14px;
+    border-radius: var(--radius-pill);
+    cursor: pointer;
+    background: rgba(20, 20, 29, 0.5);
+    transition: all 0.2s ease;
+  }
+  .chip:hover {
+    color: var(--text);
+    border-color: var(--cyan);
+    box-shadow: 0 0 14px rgba(61, 224, 255, 0.18);
+  }
+
+  .reply {
+    margin-top: 24px;
+    text-align: left;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px 22px;
+    font-size: 14.5px;
+    line-height: 1.6;
+    color: var(--text);
+  }
+  .reply.loading { color: var(--muted); }
+  .reply strong { color: var(--lime); margin-right: 6px; font-family: var(--font-mono); font-size: 12.5px; letter-spacing: 0.08em; }
+  .reply-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .reply-link {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--cyan);
+    border: 1px solid var(--border);
+    padding: 5px 10px;
+    border-radius: var(--radius-pill);
+    transition: all 0.15s;
+  }
+  .reply-link:hover { border-color: var(--cyan); background: rgba(61, 224, 255, 0.08); }
+</style>

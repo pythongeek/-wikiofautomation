@@ -1,0 +1,118 @@
+---
+/**
+ * Header.astro — fixed top nav
+ * Master plan §4 + Drive HTML <header>
+ */
+import Logo from '~/components/brand/Logo.astro';
+
+const navLinks = [
+  { href: '/wiki',       label: 'Wiki',       icon: '📚' },
+  { href: '/marketplace',label: 'Marketplace',icon: '🛒' },
+  { href: '/news',       label: 'News',       icon: '📡' },
+  { href: '/academy',    label: 'Academy',    icon: '🎓' },
+];
+
+const path = Astro.url.pathname;
+function isActive(href: string) {
+  return path === href || path.startsWith(href + '/');
+}
+---
+
+<header>
+  <a href="/" class="brand">
+    <Logo size={26} />
+    <span class="wordmark">wiki <span class="of">of</span> <span class="automation">automation</span></span>
+  </a>
+  <nav>
+    <ul>
+      {navLinks.map(l => (
+        <li><a href={l.href} class:list={[{ active: isActive(l.href) }]}>{l.label}</a></li>
+      ))}
+    </ul>
+  </nav>
+  <div class="nav-right">
+    <a href="/admin/login" class="btn">Sign in</a>
+    <a href="/marketplace/publish" class="btn btn-primary">Publish</a>
+  </div>
+</header>
+
+<style>
+  header {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 36px;
+    background: linear-gradient(180deg, rgba(10,10,15,0.9), rgba(10,10,15,0));
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-family: var(--font-headline);
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .brand .of { color: var(--muted); font-weight: 400; }
+  .brand .automation { color: var(--lime); }
+
+  nav ul {
+    list-style: none;
+    display: flex;
+    gap: 30px;
+    font-size: 14px;
+    color: var(--muted);
+  }
+  nav ul a {
+    color: inherit;
+    transition: color 0.2s ease;
+  }
+  nav ul a:hover { color: var(--text); }
+  nav ul a.active {
+    color: var(--text);
+  }
+
+  .nav-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .btn {
+    font-family: var(--font-body);
+    font-size: 14px;
+    font-weight: 600;
+    padding: 10px 18px;
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+  }
+  .btn:hover { border-color: var(--indigo-soft); }
+
+  .btn-primary {
+    background: var(--lime);
+    color: var(--bg);
+    border: none;
+  }
+  .btn-primary:hover {
+    box-shadow: 0 0 24px rgba(198, 255, 61, 0.45);
+    transform: translateY(-1px);
+  }
+
+  @media (max-width: 900px) {
+    nav ul { display: none; }
+    header { padding: 14px 20px; }
+  }
+</style>

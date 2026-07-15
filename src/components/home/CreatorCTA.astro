@@ -1,0 +1,72 @@
+---
+/**
+ * CreatorCTA.astro — "publish your agent" callout
+ */
+---
+
+<section>
+  <div class="cta-band">
+    <div class="eyebrow cta-eyebrow">FOR CREATORS</div>
+    <h2>Publish your agent. Keep up to 90% of the revenue.</h2>
+    <p>Ship a workflow, an agent, or a tiny app in minutes — from the dashboard or straight from your CLI.</p>
+    <a class="btn btn-primary" href="/marketplace/publish">Start publishing →</a>
+  </div>
+</section>
+
+<style>
+  section {
+    padding: 100px 36px;
+    max-width: var(--max-content);
+    margin: 0 auto;
+    position: relative;
+  }
+
+  .cta-band {
+    background: linear-gradient(120deg, rgba(91, 76, 255, 0.16), rgba(61, 224, 255, 0.08));
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 64px 48px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 18px;
+  }
+  .cta-eyebrow {
+    color: var(--lime);
+  }
+  .cta-band h2 {
+    font-size: clamp(24px, 3.4vw, 36px);
+    max-width: 640px;
+  }
+  .cta-band p {
+    color: var(--muted);
+    max-width: 480px;
+  }
+
+  .btn {
+    font-family: var(--font-body);
+    font-size: 14px;
+    font-weight: 600;
+    padding: 12px 22px;
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    margin-top: 6px;
+  }
+  .btn-primary {
+    background: var(--lime);
+    color: var(--bg);
+    border: none;
+  }
+  .btn-primary:hover {
+    box-shadow: 0 0 24px rgba(198, 255, 61, 0.45);
+    transform: translateY(-1px);
+  }
+</style>

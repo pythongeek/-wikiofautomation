@@ -1,0 +1,43 @@
+<svg viewBox="0 0 640 220" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="nodeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#5B4CFF"/>
+      <stop offset="100%" stop-color="#3DE0FF"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="640" height="220" fill="#0B0B10"/>
+
+  <!-- Mark: hexagonal node lattice resolving into a lowercase "a" -->
+  <g transform="translate(60,40)">
+    <!-- connecting lines -->
+    <g stroke="#5B4CFF" stroke-width="2.5" opacity="0.55">
+      <line x1="70" y1="20" x2="20" y2="55"/>
+      <line x1="70" y1="20" x2="120" y2="55"/>
+      <line x1="20" y1="55" x2="20" y2="105"/>
+      <line x1="120" y1="55" x2="120" y2="105"/>
+      <line x1="20" y1="105" x2="70" y2="140"/>
+      <line x1="120" y1="105" x2="70" y2="140"/>
+      <line x1="20" y1="105" x2="120" y2="105"/>
+      <line x1="70" y1="140" x2="120" y2="105"/>
+    </g>
+    <!-- nodes -->
+    <circle cx="70" cy="20" r="9" fill="url(#nodeGrad)"/>
+    <circle cx="20" cy="55" r="9" fill="url(#nodeGrad)"/>
+    <circle cx="120" cy="55" r="9" fill="url(#nodeGrad)"/>
+    <circle cx="20" cy="105" r="9" fill="url(#nodeGrad)"/>
+    <circle cx="120" cy="105" r="9" fill="url(#nodeGrad)"/>
+    <circle cx="70" cy="140" r="9" fill="#C6FF3D"/>
+
+    <!-- page-fold accent on the bottom node: subtle wiki nod -->
+    <path d="M 70 131 L 82 140 L 70 149 Z" fill="#0B0B10" opacity="0.35"/>
+  </g>
+
+  <!-- Wordmark -->
+  <text x="230" y="120" font-family="'Space Grotesk', 'Segoe UI', sans-serif" font-size="46" fill="#F2F1F7" letter-spacing="0.5">
+    wiki of <tspan fill="#C6FF3D">automation</tspan>
+  </text>
+  <text x="232" y="150" font-family="'Inter', 'Segoe UI', sans-serif" font-size="16" fill="#8B8B9A" letter-spacing="2">
+    THE ENCYCLOPEDIA OF AUTOMATION
+  </text>
+</svg>
