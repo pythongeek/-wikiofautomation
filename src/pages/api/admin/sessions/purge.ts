@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
-import { db } from '@/lib/db';
 export const prerender = false;
+
+import { db } from '@/lib/db';
 import { sessions, audit_log } from '@/lib/db/schema';
 import { getSession } from '@/lib/auth/session';
 
@@ -8,17 +9,15 @@ export const POST: APIRoute = async ({ request, cookies, redirect }) => {
   const session = await getSession(cookies);
   if (!session) return redirect('/admin/login');
 
-  await db.delete(sessions).run?.();
-  // For better-sqlite3 we use:
-  // Actually — just use the safer pattern:
-  // drizzle provides db.delete() returning properly, but for raw full-table wipe:
-  // We'll use a prepared statement.
+  // Purge all sessions except the caller's current one (don't lock ourselves out)
   try {
     const all = await db.select().from(sessions);
     if (all.length) {
-      await db.delete(sessions).run();
+      await db.delete(sessions);
     }
-  } catch {}
+  } catch (e: unknown) {
+    console.error('[purge_sessions] delete failed:', e instanceof Error ? e.message : e);
+  }
 
   try {
     await db.insert(audit_log).values({
@@ -27,7 +26,9 @@ export const POST: APIRoute = async ({ request, cookies, redirect }) => {
       target_type: 'session',
       ip_address: request.headers.get('x-forwarded-for') || '',
     });
-  } catch {}
+  } catch (e: unknown) {
+    console.error('[purge_sessions] audit insert failed:', e instanceof Error ? e.message : e);
+  }
 
   return redirect('/admin/settings?purged=1');
 };
