@@ -20,6 +20,8 @@ export interface RagChunk {
   score: number;
 }
 
+type AnyEntry = CollectionEntry<'wiki'> | CollectionEntry<'marketplace'> | CollectionEntry<'news'>;
+
 const STOPWORDS = new Set([
   'the','a','an','and','or','but','is','are','was','were','be','been','being','have','has','had','do','does','did','can','could','will','would','should','may','might','must','to','of','in','on','at','for','with','about','as','by','this','that','these','those','it','its','i','you','we','they','them','us','me','my','your','our','their','what','which','who','how','why','when','where','is','are','do','show','tell','give','find','use','using','please'
 ]);
@@ -54,45 +56,45 @@ function collapse(s: string): string {
   return s.replace(/\s+/g, ' ').slice(0, 280);
 }
 
-function scoreEntry(entry: CollectionEntry<any>, qTokens: string[]): number {
-  if (qTokens.length === 0) return 0;
-  const title = entry.data.title?.toLowerCase() ?? '';
-  const summary = (entry.data.summary ?? '').toLowerCase();
-  const body = entry.body?.toLowerCase() ?? '';
-  const tags = (entry.data.tags ?? []).join(' ').toLowerCase();
-  const haystack = `${title} ${summary} ${body} ${tags}`;
-
-  let score = 0;
-  for (const tok of qTokens) {
-    if (!tok) continue;
-    if (title.includes(tok)) score += 5;
-    if (tags.includes(tok)) score += 3;
-    if (summary.includes(tok)) score += 2;
-    // Count body matches, capped so a long page can't outscore a focused one
-    const matches = (haystack.match(new RegExp(`\\b${escapeRe(tok)}\\b`, 'g')) ?? []).length;
-    score += Math.min(matches, 4);
-  }
-  return score;
-}
-
 function escapeRe(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-function urlFor(entry: CollectionEntry<any>, kind: RagChunk['kind']): string {
-  const d = entry.data as any;
-  if (kind === 'wiki') {
-    return `/wiki/${d.category}/${entry.slug}`;
-  }
-  if (kind === 'news') {
-    return `/news/${entry.slug}`;
-  }
-  // marketplace
-  return `/marketplace/${entry.slug}`;
+function entryTitle(entry: AnyEntry): string {
+  const d = entry.data as Record<string, unknown>;
+  return (typeof d.title === 'string' ? d.title : entry.slug) ?? '';
 }
 
-function kindFor(entry: CollectionEntry<any>): RagChunk['kind'] {
-  const id = (entry as any).collectionId || (entry as any).id;
+function entryCategory(entry: AnyEntry, kind: RagChunk['kind']): string {
+  const d = entry.data as Record<string, unknown>;
+  if (typeof d.category === 'string') return d.category;
+  return kind;
+}
+
+function entryTags(entry: AnyEntry): string[] {
+  const d = entry.data as Record<string, unknown>;
+  return Array.isArray(d.tags) ? (d.tags as unknown[]).filter((t): t is string => typeof t === 'string') : [];
+}
+
+function entrySummary(entry: AnyEntry): string {
+  const d = entry.data as Record<string, unknown>;
+  if (typeof d.summary === 'string') return d.summary;
+  if (typeof d.description === 'string') return d.description;
+  return '';
+}
+
+function entryBody(entry: AnyEntry): string {
+  // Astro content entries expose body as string in v5
+  const b = (entry as { body?: string }).body;
+  return typeof b === 'string' ? b : '';
+}
+
+function kindFor(entry: AnyEntry): RagChunk['kind'] {
+  // Astro provides collection id via `entry.collection` (e.g. 'wiki' | 'marketplace' | 'news')
+  const c = (entry as { collection?: string }).collection;
+  if (c === 'wiki' || c === 'marketplace' || c === 'news') return c;
+  // Fallback: legacy id field
+  const id = (entry as { id?: string }).id;
   if (typeof id === 'string') {
     if (id.includes('wiki')) return 'wiki';
     if (id.includes('marketplace')) return 'marketplace';
@@ -101,33 +103,79 @@ function kindFor(entry: CollectionEntry<any>): RagChunk['kind'] {
   return 'wiki';
 }
 
+function urlFor(entry: AnyEntry, kind: RagChunk['kind']): string {
+  if (kind === 'wiki') {
+    return `/wiki/${entryCategory(entry, kind)}/${entry.slug}`;
+  }
+  if (kind === 'news') {
+    return `/news/${entry.slug}`;
+  }
+  return `/marketplace/${entry.slug}`;
+}
+
+function scoreEntry(entry: AnyEntry, qTokens: string[]): number {
+  if (qTokens.length === 0) return 0;
+  const title = entryTitle(entry).toLowerCase();
+  const summary = entrySummary(entry).toLowerCase();
+  const body = entryBody(entry).toLowerCase();
+  const tags = entryTags(entry).join(' ').toLowerCase();
+  const haystack = `${title} ${summary} ${body} ${tags}`;
+
+  let score = 0;
+  for (const tok of qTokens) {
+    if (!tok) continue;
+    if (title.includes(tok)) score += 5;
+    if (tags.includes(tok)) score += 3;
+    if (summary.includes(tok)) score += 2;
+    const matches = haystack.match(new RegExp(`\\b${escapeRe(tok)}\\b`, 'g'));
+    score += Math.min(matches ? matches.length : 0, 4);
+  }
+  return score;
+}
+
 export async function retrieve(query: string, limit = 5): Promise<RagChunk[]> {
   const qTokens = tokenize(query);
   if (qTokens.length === 0) return [];
 
-  const wiki = await getCollection('wiki').catch(() => []);
-  const mkt = await getCollection('marketplace').catch(() => []);
-  const news = await getCollection('news').catch(() => []);
+  // Each getCollection returns a specifically-typed array; we widen to AnyEntry.
+  let wiki: AnyEntry[] = [];
+  let mkt: AnyEntry[] = [];
+  let news: AnyEntry[] = [];
 
-  const allEntries: CollectionEntry<any>[] = [...wiki, ...mkt, ...news];
-  const scored = allEntries
-    .map((e) => {
-      const score = scoreEntry(e, qTokens);
-      const d = e.data as any;
-      const kind = kindFor(e);
-      return {
-        slug: e.slug ?? '',
-        category: d.category ?? (kind === 'news' ? 'news' : 'marketplace'),
-        kind,
-        title: d.title ?? e.slug ?? '',
-        snippet: makeSnippet(e.body, qTokens),
-        url: urlFor(e, kind),
-        score,
-      } satisfies RagChunk;
-    })
-    .filter((c) => c.score > 0)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, limit);
+  try {
+    wiki = (await getCollection('wiki')) as unknown as AnyEntry[];
+  } catch (e: unknown) {
+    console.error('[rag] wiki collection error:', e instanceof Error ? e.message : e);
+  }
+  try {
+    mkt = (await getCollection('marketplace')) as unknown as AnyEntry[];
+  } catch (e: unknown) {
+    console.error('[rag] marketplace collection error:', e instanceof Error ? e.message : e);
+  }
+  try {
+    news = (await getCollection('news')) as unknown as AnyEntry[];
+  } catch (e: unknown) {
+    console.error('[rag] news collection error:', e instanceof Error ? e.message : e);
+  }
 
-  return scored;
+  const allEntries: AnyEntry[] = [...wiki, ...mkt, ...news];
+
+  const scored: RagChunk[] = [];
+  for (const e of allEntries) {
+    const score = scoreEntry(e, qTokens);
+    if (score <= 0) continue;
+    const kind = kindFor(e);
+    scored.push({
+      slug: e.slug ?? '',
+      category: entryCategory(e, kind),
+      kind,
+      title: entryTitle(e),
+      snippet: makeSnippet(entryBody(e), qTokens),
+      url: urlFor(e, kind),
+      score,
+    });
+  }
+
+  scored.sort((a, b) => b.score - a.score);
+  return scored.slice(0, limit);
 }

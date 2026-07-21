@@ -51,6 +51,9 @@ const marketplace = defineCollection({
     original_author: z.string(),
     original_url: z.string().url(),
     attribution: z.string().optional(),           // override attribution line if non-standard
+    summary: z.string().max(280).optional(),      // short blurb for SEO + listing cards
+    description: z.string().optional(),           // longer markdown body description (admin queue input)
+    category: z.string().optional(),              // legacy/UI category (free-form)
     status: z.enum(['draft', 'queued', 'live', 'rejected']).default('live'),
     created: z.string(),
     updated: z.string(),
