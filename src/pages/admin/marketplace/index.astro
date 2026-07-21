@@ -1,0 +1,130 @@
+---
+import Layout from '@/layouts/Base.astro';
+export const prerender = false;
+
+import { db } from '@/lib/db';
+import { listings, listings_queue } from '@/lib/db/schema';
+import { desc, eq, count } from 'drizzle-orm';
+import { getCollection } from 'astro:content';
+
+const session = Astro.locals.session;
+if (!session) return Astro.redirect('/admin/login');
+
+const filter = Astro.url.searchParams.get('status') || 'pending';
+
+// DB listings (queue + history)
+const dbListings = await db
+  .select()
+  .from(listings)
+  .where(eq(listings.status, filter))
+  .orderBy(desc(listings.created_at))
+  .limit(50);
+
+// Vault marketplace entries (published)
+const vaultListings = await getCollection('marketplace');
+const pendingDb = filter === 'pending' ? dbListings : [];
+const otherDb = filter !== 'pending' ? dbListings : [];
+---
+
+<Layout title={`Marketplace (${filter}) | Admin`}>
+  <div class="flex min-h-screen bg-[#0B0B10] text-[#F2F1F7]">
+    <aside class="w-64 bg-[#1A1A2E] min-h-screen p-4 shrink-0">
+      <h2 class="text-xl font-bold text-[#C6FF3D] mb-6">Admin</h2>
+      <nav class="space-y-1 text-sm">
+        <a href="/admin/" class="block px-3 py-2 rounded hover:bg-[#2D2D44]">Dashboard</a>
+        <a href="/admin/wiki" class="block px-3 py-2 rounded hover:bg-[#2D2D44]">Wiki Entries</a>
+        <a href="/admin/marketplace" class="block px-3 py-2 rounded bg-[#5B4CFF]/20 text-[#C6FF3D] font-medium">Marketplace</a>
+        <a href="/admin/news" class="block px-3 py-2 rounded hover:bg-[#2D2D44]">News</a>
+        <a href="/admin/tasks" class="block px-3 py-2 rounded hover:bg-[#2D2D44]">Tasks</a>
+        <a href="/admin/ada" class="block px-3 py-2 rounded hover:bg-[#2D2D44]">Ada Log</a>
+        <a href="/admin/settings" class="block px-3 py-2 rounded hover:bg-[#2D2D44]">Settings</a>
+      </nav>
+    </aside>
+
+    <main class="flex-1 p-6 lg:p-8">
+      <h1 class="text-3xl font-bold mb-6">Marketplace Queue</h1>
+
+      <!-- Filter tabs -->
+      <div class="flex gap-2 mb-6 border-b border-[#2D2D44]">
+        <a href="/admin/marketplace?status=pending"
+           class={`px-4 py-2 text-sm font-medium border-b-2 ${filter === 'pending' ? 'border-[#C6FF3D] text-[#C6FF3D]' : 'border-transparent text-gray-400 hover:text-white'}`}>Pending</a>
+        <a href="/admin/marketplace?status=approved"
+           class={`px-4 py-2 text-sm font-medium border-b-2 ${filter === 'approved' ? 'border-[#C6FF3D] text-[#C6FF3D]' : 'border-transparent text-gray-400 hover:text-white'}`}>Approved</a>
+        <a href="/admin/marketplace?status=published"
+           class={`px-4 py-2 text-sm font-medium border-b-2 ${filter === 'published' ? 'border-[#C6FF3D] text-[#C6FF3D]' : 'border-transparent text-gray-400 hover:text-white'}`}>Published</a>
+        <a href="/admin/marketplace?status=rejected"
+           class={`px-4 py-2 text-sm font-medium border-b-2 ${filter === 'rejected' ? 'border-[#C6FF3D] text-[#C6FF3D]' : 'border-transparent text-gray-400 hover:text-white'}`}>Rejected</a>
+      </div>
+
+      {pendingDb.length === 0 && filter !== 'pending' && otherDb.length === 0 ? (
+        <div class="bg-[#1A1A2E] border border-[#2D2D44] rounded-lg p-8 text-center">
+          <p class="text-gray-500">No listings in "{filter}" status.</p>
+        </div>
+      ) : (
+        <div class="space-y-4">
+          {(filter === 'pending' ? pendingDb : otherDb).map(listing => (
+            <div class="bg-[#1A1A2E] border border-[#2D2D44] rounded-lg p-5">
+              <div class="flex items-start justify-between gap-4">
+                <div class="flex-1">
+                  <h3 class="font-bold text-lg">{listing.title}</h3>
+                  <p class="text-sm text-gray-400 mt-1 line-clamp-2">{listing.description || 'No description'}</p>
+                  <div class="flex items-center gap-3 mt-3 text-xs">
+                    {listing.category && <span class="px-2 py-1 bg-[#2D2D44] rounded text-[#3DE0FF]">{listing.category}</span>}
+                    {listing.price !== null && listing.price !== undefined && (
+                      <span class="text-[#C6FF3D] font-medium">${(listing.price / 100).toFixed(2)}</span>
+                    )}
+                    <span class="text-gray-500">From {listing.creator_email || 'anonymous'}</span>
+                    <span class="text-gray-500">{listing.created_at ? new Date(listing.created_at).toLocaleDateString() : '—'}</span>
+                  </div>
+                </div>
+
+                {listing.status === 'pending' && (
+                  <div class="flex flex-col gap-2">
+                    <form method="POST" action="/api/admin/marketplace/approve">
+                      <input type="hidden" name="id" value={listing.id} />
+                      <button type="submit" class="bg-[#C6FF3D] text-[#0B0B10] px-3 py-1 rounded text-sm font-medium hover:bg-[#B8F02E]">Approve</button>
+                    </form>
+                    <form method="POST" action="/api/admin/marketplace/reject">
+                      <input type="hidden" name="id" value={listing.id} />
+                      <button type="submit" class="bg-red-500 text-white px-3 py-1 rounded text-sm font-medium hover:bg-red-600">Reject</button>
+                    </form>
+                  </div>
+                )}
+                {listing.status === 'approved' && (
+                  <form method="POST" action="/api/admin/marketplace/publish">
+                    <input type="hidden" name="id" value={listing.id} />
+                    <button type="submit" class="bg-[#5B4CFF] text-white px-3 py-1 rounded text-sm font-medium hover:bg-[#4A3CFF]">Publish →</button>
+                  </form>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div class="mt-12">
+        <h2 class="text-xl font-bold mb-4">Published Vault Entries ({vaultListings.length})</h2>
+        <div class="bg-[#1A1A2E] border border-[#2D2D44] rounded-lg overflow-hidden">
+          <table class="w-full text-sm">
+            <thead class="bg-[#2D2D44]">
+              <tr>
+                <th class="px-4 py-3 text-left text-xs uppercase text-gray-400">Slug</th>
+                <th class="px-4 py-3 text-left text-xs uppercase text-gray-400">Title</th>
+                <th class="px-4 py-3 text-left text-xs uppercase text-gray-400">Category</th>
+              </tr>
+            </thead>
+            <tbody>
+              {vaultListings.map(entry => (
+                <tr class="border-t border-[#2D2D44]">
+                  <td class="px-4 py-3 font-mono text-xs text-[#3DE0FF]">{entry.slug}</td>
+                  <td class="px-4 py-3">{entry.data.title}</td>
+                  <td class="px-4 py-3 text-gray-400">{entry.data.type}{entry.data.pricing && entry.data.pricing !== 'free' ? ` · ${entry.data.pricing}` : ''}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+</Layout>

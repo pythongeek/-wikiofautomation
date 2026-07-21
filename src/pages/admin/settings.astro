@@ -1,0 +1,82 @@
+---
+import Layout from '@/layouts/Base.astro';
+import { env } from '@/lib/env';
+export const prerender = false;
+
+const session = Astro.locals.session;
+if (!session) return Astro.redirect('/admin/login');
+
+const config = {
+  ADMIN_EMAIL: env.ADMIN_EMAIL || '(not set)',
+  LLM_MODEL: env.LLM_MODEL || 'minimax/MiniMax-M3',
+  DB_PATH: env.DB_PATH || '(default)',
+  SITE_URL: env.SITE_URL || '(not set)',
+};
+
+const validAdmin = !!(env.ADMIN_EMAIL && env.ADMIN_PASSWORD_HASH);
+---
+
+<Layout title="Settings | Admin">
+  <div class="flex min-h-screen bg-[#0B0B10] text-[#F2F1F7]">
+    <aside class="w-64 bg-[#1A1A2E] min-h-screen p-4 shrink-0">
+      <h2 class="text-xl font-bold text-[#C6FF3D] mb-6">Admin</h2>
+      <nav class="space-y-1 text-sm">
+        <a href="/admin/" class="block px-3 py-2 rounded hover:bg-[#2D2D44]">Dashboard</a>
+        <a href="/admin/wiki" class="block px-3 py-2 rounded hover:bg-[#2D2D44]">Wiki Entries</a>
+        <a href="/admin/marketplace" class="block px-3 py-2 rounded hover:bg-[#2D2D44]">Marketplace</a>
+        <a href="/admin/news" class="block px-3 py-2 rounded hover:bg-[#2D2D44]">News</a>
+        <a href="/admin/tasks" class="block px-3 py-2 rounded hover:bg-[#2D2D44]">Tasks</a>
+        <a href="/admin/ada" class="block px-3 py-2 rounded hover:bg-[#2D2D44]">Ada Log</a>
+        <a href="/admin/settings" class="block px-3 py-2 rounded bg-[#5B4CFF]/20 text-[#C6FF3D] font-medium">Settings</a>
+      </nav>
+    </aside>
+
+    <main class="flex-1 p-6 lg:p-8">
+      <h1 class="text-3xl font-bold mb-6">Settings</h1>
+
+      <!-- Status banner -->
+      <div class={`mb-6 p-4 rounded-lg border ${validAdmin ? 'bg-[#C6FF3D]/10 border-[#C6FF3D] text-[#C6FF3D]' : 'bg-red-500/10 border-red-500 text-red-300'}`}>
+        <p class="font-medium">{validAdmin ? '✓ Admin auth configured' : '✗ ADMIN_EMAIL / ADMIN_PASSWORD_HASH not set'}</p>
+        {!validAdmin && (
+          <p class="text-xs mt-1">Generate a hash with: <code class="bg-[#0B0B10] px-1 rounded">npm run seed-admin -- your@email.com yourPassword</code></p>
+        )}
+      </div>
+
+      <!-- Environment (read-only) -->
+      <section class="bg-[#1A1A2E] border border-[#2D2D44] rounded-lg p-5 mb-6">
+        <h2 class="text-lg font-bold mb-3">Environment</h2>
+        <p class="text-xs text-gray-500 mb-4">Set in Hostinger hPanel Web App settings, never in source. Restart required for changes.</p>
+        <dl class="space-y-2 text-sm">
+          {Object.entries(config).map(([k, v]) => (
+            <div class="flex justify-between border-t border-[#2D2D44] pt-2">
+              <dt class="font-mono text-[#3DE0FF]">{k}</dt>
+              <dd class="font-mono text-gray-400 break-all text-right">{v}</dd>
+            </div>
+          ))}
+        </dl>
+      </section>
+
+      <!-- Brand (read-only here) -->
+      <section class="bg-[#1A1A2E] border border-[#2D2D44] rounded-lg p-5 mb-6">
+        <h2 class="text-lg font-bold mb-3">Brand Tokens</h2>
+        <p class="text-xs text-gray-500 mb-4">Defined in <code class="text-[#3DE0FF]">src/styles/tokens.css</code>.</p>
+        <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 text-xs">
+          <div><div class="w-full h-12 bg-[#0B0B10] border border-[#2D2D44] rounded mb-1"></div><p>ink #0B0B10</p></div>
+          <div><div class="w-full h-12 bg-[#5B4CFF] rounded mb-1"></div><p>indigo #5B4CFF</p></div>
+          <div><div class="w-full h-12 bg-[#C6FF3D] rounded mb-1"></div><p>lime #C6FF3D</p></div>
+          <div><div class="w-full h-12 bg-[#3DE0FF] rounded mb-1"></div><p>cyan #3DE0FF</p></div>
+          <div><div class="w-full h-12 bg-[#F2F1F7] rounded mb-1"></div><p>text #F2F1F7</p></div>
+        </div>
+      </section>
+
+      <!-- Danger zone -->
+      <section class="bg-red-500/5 border border-red-500/30 rounded-lg p-5">
+        <h2 class="text-lg font-bold text-red-300 mb-3">Danger Zone</h2>
+        <p class="text-xs text-gray-400 mb-3">Delete admin sessions (forces re-login for everyone):</p>
+        <form method="POST" action="/api/admin/sessions/purge">
+          <button type="submit" class="bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600">Purge all sessions</button>
+        </form>
+      </section>
+    </main>
+  </div>
+</Layout>

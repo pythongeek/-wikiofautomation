@@ -22,6 +22,12 @@ export default defineConfig({
   adapter: node({ mode: 'standalone' }),
   prefetch: { defaultStrategy: 'hover' },
   trailingSlash: 'ignore',
+  // T009 — custom Node admin has its own middleware (src/middleware/index.ts).
+  // Disable Astro's built-in origin check so /api/admin/* form posts work the
+  // same way the Astro pages do (audit log + session cookie handle auth).
+  security: {
+    checkOrigin: false,
+  },
   i18n: {
     defaultLocale: 'en',
     locales: ['en', 'bn', 'hi'],
@@ -39,7 +45,10 @@ export default defineConfig({
   ],
   vite: {
     ssr: {
-      noExternal: ['better-sqlite3'],
+      // Keep better-sqlite3 external so its native binding (.node) is
+      // loaded at runtime from node_modules instead of being bundled.
+      external: ['better-sqlite3'],
+      noExternal: [],
     },
     optimizeDeps: {
       exclude: ['better-sqlite3'],

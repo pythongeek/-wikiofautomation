@@ -1,0 +1,103 @@
+---
+import Layout from '@/layouts/Base.astro';
+export const prerender = false;
+
+import { getEntry } from 'astro:content';
+
+const session = Astro.locals.session;
+if (!session) return Astro.redirect('/admin/login');
+
+const { slug } = Astro.params;
+if (!slug || slug === 'new') return Astro.redirect('/admin/wiki');
+
+const entry = await getEntry('wiki', slug);
+if (!entry) {
+  return new Response('Not found', { status: 404 });
+}
+
+// Serialize current body for the editor
+const body = entry.body || '';
+const data = entry.data;
+---
+
+<Layout title={`Edit: ${data.title} | Admin`}>
+  <div class="flex min-h-screen bg-[#0B0B10] text-[#F2F1F7]">
+    <aside class="w-64 bg-[#1A1A2E] min-h-screen p-4 shrink-0">
+      <h2 class="text-xl font-bold text-[#C6FF3D] mb-6">Admin</h2>
+      <nav class="space-y-1 text-sm">
+        <a href="/admin/" class="block px-3 py-2 rounded hover:bg-[#2D2D44]">Dashboard</a>
+        <a href="/admin/wiki" class="block px-3 py-2 rounded bg-[#5B4CFF]/20 text-[#C6FF3D] font-medium">Wiki Entries</a>
+        <a href="/admin/marketplace" class="block px-3 py-2 rounded hover:bg-[#2D2D44]">Marketplace</a>
+        <a href="/admin/news" class="block px-3 py-2 rounded hover:bg-[#2D2D44]">News</a>
+        <a href="/admin/tasks" class="block px-3 py-2 rounded hover:bg-[#2D2D44]">Tasks</a>
+        <a href="/admin/ada" class="block px-3 py-2 rounded hover:bg-[#2D2D44]">Ada Log</a>
+        <a href="/admin/settings" class="block px-3 py-2 rounded hover:bg-[#2D2D44]">Settings</a>
+      </nav>
+    </aside>
+
+    <main class="flex-1 p-6 lg:p-8">
+      <div class="flex items-center justify-between mb-6">
+        <div>
+          <a href="/admin/wiki" class="text-sm text-[#3DE0FF] hover:underline">← Wiki</a>
+          <h1 class="text-3xl font-bold mt-1">Edit: {data.title}</h1>
+          <p class="font-mono text-xs text-gray-500 mt-1">{entry.slug}</p>
+        </div>
+        <a href={`/wiki/${entry.slug}`} target="_blank" class="text-sm text-[#5B4CFF] hover:underline">View live ↗</a>
+      </div>
+
+      <form method="POST" action="/api/admin/wiki/save" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <input type="hidden" name="originalSlug" value={entry.slug} />
+
+        <!-- Body editor -->
+        <div class="lg:col-span-2 bg-[#1A1A2E] border border-[#2D2D44] rounded-lg p-5">
+          <label for="body" class="block text-sm font-medium mb-2">Markdown Body</label>
+          <textarea
+            id="body"
+            name="body"
+            rows="30"
+            class="w-full bg-[#0B0B10] border border-[#2D2D44] rounded p-3 font-mono text-sm focus:outline-none focus:border-[#5B4CFF]"
+          >{body}</textarea>
+          <p class="text-xs text-gray-500 mt-2">
+            Edit the raw markdown. Frontmatter is managed in the side panel. Save writes back to <code class="text-[#3DE0FF]">src/content/wiki/{entry.slug}.md</code>.
+          </p>
+        </div>
+
+        <!-- Frontmatter side panel -->
+        <div class="space-y-4">
+          <div class="bg-[#1A1A2E] border border-[#2D2D44] rounded-lg p-5">
+            <h2 class="font-bold mb-3">Frontmatter</h2>
+
+            <label class="block text-sm font-medium mb-1">Title</label>
+            <input type="text" name="title" required value={data.title}
+              class="w-full bg-[#0B0B10] border border-[#2D2D44] rounded px-3 py-2 mb-3 focus:border-[#5B4CFF]" />
+
+            <label class="block text-sm font-medium mb-1">Slug</label>
+            <input type="text" name="slug" value={entry.slug}
+              class="w-full bg-[#0B0B10] border border-[#2D2D44] rounded px-3 py-2 mb-3 font-mono text-sm focus:border-[#5B4CFF]" />
+
+            <label class="block text-sm font-medium mb-1">Category</label>
+            <input type="text" name="category" value={data.category || ''}
+              class="w-full bg-[#0B0B10] border border-[#2D2D44] rounded px-3 py-2 mb-3 focus:border-[#5B4CFF]" />
+
+            <label class="block text-sm font-medium mb-1">Tags (comma-separated)</label>
+            <input type="text" name="tags" value={(data.tags || []).join(', ')}
+              class="w-full bg-[#0B0B10] border border-[#2D2D44] rounded px-3 py-2 mb-3 focus:border-[#5B4CFF]" />
+
+            <label class="block text-sm font-medium mb-1">Summary</label>
+            <textarea name="summary" rows="3"
+              class="w-full bg-[#0B0B10] border border-[#2D2D44] rounded px-3 py-2 mb-3 focus:border-[#5B4CFF]">{data.summary || ''}</textarea>
+          </div>
+
+          <div class="bg-[#1A1A2E] border border-[#2D2D44] rounded-lg p-5">
+            <button type="submit" class="w-full bg-[#C6FF3D] text-[#0B0B10] py-2 rounded font-medium hover:bg-[#B8F02E]">
+              Save to Vault
+            </button>
+            <p class="text-xs text-gray-500 mt-2 text-center">
+              Writes the .md file. Triggers re-embed on next Ada request.
+            </p>
+          </div>
+        </div>
+      </form>
+    </main>
+  </div>
+</Layout>

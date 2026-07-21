@@ -1,0 +1,72 @@
+---
+import Layout from '@/layouts/Base.astro';
+import { env } from '@/lib/env';
+
+const url = Astro.url;
+const error = url.searchParams.get('error') || '';
+
+if (Astro.locals.session) {
+  return Astro.redirect('/admin/');
+}
+
+const adminConfigured = !!(env.ADMIN_EMAIL && env.ADMIN_PASSWORD_HASH);
+---
+
+<Layout title="Admin Login | Wiki of Automation">
+  <main class="min-h-screen bg-[#0B0B10] text-[#F2F1F7] flex items-center justify-center p-4">
+    <div class="bg-[#1A1A2E] p-8 rounded-lg shadow-lg w-full max-w-md">
+      <h1 class="text-2xl font-bold text-[#C6FF3D] mb-2">Admin Login</h1>
+      <p class="text-sm text-gray-400 mb-6">Wiki of Automation</p>
+
+      {!adminConfigured && (
+        <div class="bg-yellow-500/10 border border-yellow-500 text-yellow-300 p-3 rounded mb-4 text-sm">
+          Admin credentials not set on the server. Set <code class="text-[#3DE0FF]">ADMIN_EMAIL</code> and <code class="text-[#3DE0FF]">ADMIN_PASSWORD_HASH</code> in environment variables.
+        </div>
+      )}
+
+      {error && (
+        <div class="bg-red-500/10 border border-red-500 text-red-300 p-3 rounded mb-4 text-sm">
+          {error}
+        </div>
+      )}
+
+      <form method="POST" action="/api/admin/login" class="space-y-4">
+        <div>
+          <label for="email" class="block text-sm font-medium mb-1">Email</label>
+          <input
+            type="email"
+            name="email"
+            id="email"
+            required
+            class="w-full px-3 py-2 bg-[#2D2D44] border border-[#5B4CFF] rounded text-white focus:outline-none focus:ring-2 focus:ring-[#5B4CFF]"
+            placeholder="admin@wikiofautomation.com"
+          />
+        </div>
+
+        <div>
+          <label for="password" class="block text-sm font-medium mb-1">Password</label>
+          <input
+            type="password"
+            name="password"
+            id="password"
+            required
+            class="w-full px-3 py-2 bg-[#2D2D44] border border-[#5B4CFF] rounded text-white focus:outline-none focus:ring-2 focus:ring-[#5B4CFF]"
+            placeholder="••••••••"
+          />
+        </div>
+
+        <button
+          type="submit"
+          class="w-full bg-[#5B4CFF] text-white py-2 px-4 rounded font-medium hover:bg-[#4A3CFF] transition-colors disabled:opacity-50"
+          disabled={!adminConfigured}
+        >
+          {adminConfigured ? 'Sign In' : 'Disabled (no env)'}
+        </button>
+      </form>
+
+      <p class="mt-6 text-center text-xs text-gray-500">
+        Powered by Wiki of Automation · Astro SSR
+      </p>
+    </div>
+  </main>
+</Layout>

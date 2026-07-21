@@ -1,0 +1,74 @@
+---
+import Layout from '@/layouts/Base.astro';
+export const prerender = false;
+
+import { getEntry } from 'astro:content';
+
+const session = Astro.locals.session;
+if (!session) return Astro.redirect('/admin/login');
+
+const { slug } = Astro.params;
+if (!slug) return Astro.redirect('/admin/news');
+
+const entry = await getEntry('news', slug);
+if (!entry) return new Response('Not found', { status: 404 });
+
+const body = entry.body || '';
+const data = entry.data;
+---
+
+<Layout title={`Edit: ${data.title} | Admin`}>
+  <div class="flex min-h-screen bg-[#0B0B10] text-[#F2F1F7]">
+    <aside class="w-64 bg-[#1A1A2E] min-h-screen p-4 shrink-0">
+      <h2 class="text-xl font-bold text-[#C6FF3D] mb-6">Admin</h2>
+      <nav class="space-y-1 text-sm">
+        <a href="/admin/" class="block px-3 py-2 rounded hover:bg-[#2D2D44]">Dashboard</a>
+        <a href="/admin/wiki" class="block px-3 py-2 rounded hover:bg-[#2D2D44]">Wiki Entries</a>
+        <a href="/admin/marketplace" class="block px-3 py-2 rounded hover:bg-[#2D2D44]">Marketplace</a>
+        <a href="/admin/news" class="block px-3 py-2 rounded bg-[#5B4CFF]/20 text-[#C6FF3D] font-medium">News</a>
+        <a href="/admin/tasks" class="block px-3 py-2 rounded hover:bg-[#2D2D44]">Tasks</a>
+        <a href="/admin/ada" class="block px-3 py-2 rounded hover:bg-[#2D2D44]">Ada Log</a>
+        <a href="/admin/settings" class="block px-3 py-2 rounded hover:bg-[#2D2D44]">Settings</a>
+      </nav>
+    </aside>
+
+    <main class="flex-1 p-6 lg:p-8">
+      <a href="/admin/news" class="text-sm text-[#3DE0FF] hover:underline">← News</a>
+      <h1 class="text-3xl font-bold mt-1 mb-6">Edit: {data.title}</h1>
+
+      <form method="POST" action="/api/admin/news/save" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <input type="hidden" name="originalSlug" value={entry.slug} />
+
+        <div class="lg:col-span-2 bg-[#1A1A2E] border border-[#2D2D44] rounded-lg p-5">
+          <label for="body" class="block text-sm font-medium mb-2">Markdown Body</label>
+          <textarea id="body" name="body" rows="30"
+            class="w-full bg-[#0B0B10] border border-[#2D2D44] rounded p-3 font-mono text-sm focus:outline-none focus:border-[#5B4CFF]">{body}</textarea>
+        </div>
+
+        <div class="space-y-4">
+          <div class="bg-[#1A1A2E] border border-[#2D2D44] rounded-lg p-5">
+            <h2 class="font-bold mb-3">Frontmatter</h2>
+
+            <label class="block text-sm font-medium mb-1">Title</label>
+            <input type="text" name="title" required value={data.title}
+              class="w-full bg-[#0B0B10] border border-[#2D2D44] rounded px-3 py-2 mb-3 focus:border-[#5B4CFF]" />
+
+            <label class="block text-sm font-medium mb-1">Slug</label>
+            <input type="text" name="slug" value={entry.slug}
+              class="w-full bg-[#0B0B10] border border-[#2D2D44] rounded px-3 py-2 mb-3 font-mono text-sm focus:border-[#5B4CFF]" />
+
+            <label class="block text-sm font-medium mb-1">Excerpt</label>
+            <textarea name="excerpt" rows="3"
+              class="w-full bg-[#0B0B10] border border-[#2D2D44] rounded px-3 py-2 mb-3 focus:border-[#5B4CFF]">{data.excerpt || ''}</textarea>
+
+            <label class="block text-sm font-medium mb-1">Published</label>
+            <input type="date" name="published" value={data.published || ''}
+              class="w-full bg-[#0B0B10] border border-[#2D2D44] rounded px-3 py-2 mb-3 focus:border-[#5B4CFF]" />
+          </div>
+
+          <button type="submit" class="w-full bg-[#C6FF3D] text-[#0B0B10] py-2 rounded font-medium hover:bg-[#B8F02E]">Save</button>
+        </div>
+      </form>
+    </main>
+  </div>
+</Layout>

@@ -8,6 +8,7 @@
     "types": ["astro/client", "node"],
     "skipLibCheck": true,
     "paths": {
+      "@/*": ["./src/*"],
       "~/*": ["./src/*"]
     },
     "baseUrl": "."

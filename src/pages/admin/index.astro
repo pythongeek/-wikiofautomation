@@ -1,0 +1,125 @@
+---
+import Layout from '@/layouts/Base.astro';
+export const prerender = false;
+
+import { db } from '@/lib/db';
+import { users, wiki_entries, listings, ada_queries, audit_log } from '@/lib/db/schema';
+import { eq, desc, count } from 'drizzle-orm';
+
+const session = Astro.locals.session;
+if (!session) return Astro.redirect('/admin/login');
+
+const [userCount, wikiCount, listingCount, pendingCount, adaCount] = await Promise.all([
+  db.select({ c: count() }).from(users).then(r => r[0].c),
+  db.select({ c: count() }).from(wiki_entries).then(r => r[0].c),
+  db.select({ c: count() }).from(listings).then(r => r[0].c),
+  db.select({ c: count() }).from(listings).where(eq(listings.status, 'pending')).then(r => r[0].c),
+  db.select({ c: count() }).from(ada_queries).then(r => r[0].c),
+]);
+
+const recentAda = await db
+  .select()
+  .from(ada_queries)
+  .orderBy(desc(ada_queries.created_at))
+  .limit(5);
+
+const recentAudit = await db
+  .select()
+  .from(audit_log)
+  .orderBy(desc(audit_log.created_at))
+  .limit(5);
+---
+
+<Layout title="Admin Dashboard | Wiki of Automation">
+  <div class="flex min-h-screen bg-[#0B0B10] text-[#F2F1F7]">
+    <!-- Sidebar -->
+    <aside class="w-64 bg-[#1A1A2E] min-h-screen p-4 shrink-0">
+      <h2 class="text-xl font-bold text-[#C6FF3D] mb-6">Admin</h2>
+      <nav class="space-y-1 text-sm">
+        <a href="/admin/" class="block px-3 py-2 rounded bg-[#5B4CFF]/20 text-[#C6FF3D] font-medium">Dashboard</a>
+        <a href="/admin/wiki" class="block px-3 py-2 rounded hover:bg-[#2D2D44]">Wiki Entries</a>
+        <a href="/admin/marketplace" class="block px-3 py-2 rounded hover:bg-[#2D2D44]">Marketplace</a>
+        <a href="/admin/news" class="block px-3 py-2 rounded hover:bg-[#2D2D44]">News</a>
+        <a href="/admin/tasks" class="block px-3 py-2 rounded hover:bg-[#2D2D44]">Tasks</a>
+        <a href="/admin/ada" class="block px-3 py-2 rounded hover:bg-[#2D2D44]">Ada Log</a>
+        <a href="/admin/settings" class="block px-3 py-2 rounded hover:bg-[#2D2D44]">Settings</a>
+        <div class="border-t border-[#2D2D44] my-4"></div>
+        <p class="px-3 text-xs text-gray-500 mb-1">Signed in as</p>
+        <p class="px-3 text-xs font-mono text-[#3DE0FF] mb-2 break-all">{session.email}</p>
+        <form action="/api/admin/logout" method="POST">
+          <button type="submit" class="w-full text-left px-3 py-2 text-red-400 hover:bg-[#2D2D44] rounded">Logout</button>
+        </form>
+      </nav>
+    </aside>
+
+    <!-- Main -->
+    <main class="flex-1 p-6 lg:p-8">
+      <h1 class="text-3xl font-bold mb-6">Dashboard</h1>
+
+      <div class="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+        <div class="bg-[#1A1A2E] border border-[#2D2D44] p-4 rounded-lg">
+          <p class="text-xs uppercase text-gray-500 mb-1">Admins</p>
+          <p class="text-2xl font-bold text-[#C6FF3D]">{userCount}</p>
+        </div>
+        <div class="bg-[#1A1A2E] border border-[#2D2D44] p-4 rounded-lg">
+          <p class="text-xs uppercase text-gray-500 mb-1">Wiki Entries</p>
+          <p class="text-2xl font-bold text-[#C6FF3D]">{wikiCount}</p>
+        </div>
+        <div class="bg-[#1A1A2E] border border-[#2D2D44] p-4 rounded-lg">
+          <p class="text-xs uppercase text-gray-500 mb-1">Listings</p>
+          <p class="text-2xl font-bold text-[#C6FF3D]">{listingCount}</p>
+        </div>
+        <div class="bg-[#1A1A2E] border border-[#2D2D44] p-4 rounded-lg">
+          <p class="text-xs uppercase text-gray-500 mb-1">Pending</p>
+          <p class="text-2xl font-bold text-[#C6FF3D]">{pendingCount}</p>
+        </div>
+        <div class="bg-[#1A1A2E] border border-[#2D2D44] p-4 rounded-lg">
+          <p class="text-xs uppercase text-gray-500 mb-1">Ada Queries</p>
+          <p class="text-2xl font-bold text-[#C6FF3D]">{adaCount}</p>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <section class="bg-[#1A1A2E] border border-[#2D2D44] p-5 rounded-lg">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-bold">Recent Ada Queries</h2>
+            <a href="/admin/ada" class="text-xs text-[#3DE0FF] hover:underline">View all →</a>
+          </div>
+          {recentAda.length === 0 ? (
+            <p class="text-sm text-gray-500">No queries yet.</p>
+          ) : (
+            <ul class="space-y-3">
+              {recentAda.map(q => (
+                <li class="border-l-2 border-[#5B4CFF] pl-3">
+                  <p class="text-xs text-gray-500">{q.created_at ? new Date(q.created_at).toLocaleString() : '—'}</p>
+                  <p class="text-sm font-medium line-clamp-1">{q.query}</p>
+                  {q.intent && <p class="text-xs text-[#3DE0FF] mt-1">{q.intent}</p>}
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <section class="bg-[#1A1A2E] border border-[#2D2D44] p-5 rounded-lg">
+          <h2 class="text-lg font-bold mb-4">Recent Activity</h2>
+          {recentAudit.length === 0 ? (
+            <p class="text-sm text-gray-500">No activity yet.</p>
+          ) : (
+            <ul class="space-y-3">
+              {recentAudit.map(log => (
+                <li class="border-l-2 border-[#C6FF3D] pl-3">
+                  <p class="text-xs text-gray-500">{log.created_at ? new Date(log.created_at).toLocaleString() : '—'}</p>
+                  <p class="text-sm font-medium">
+                    <span class="text-[#C6FF3D]">{log.action}</span>
+                    {log.target_type && <span class="text-gray-400"> {log.target_type}</span>}
+                  </p>
+                  <p class="text-xs text-gray-500 font-mono">{log.user_email}</p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      </div>
+    </main>
+  </div>
+</Layout>

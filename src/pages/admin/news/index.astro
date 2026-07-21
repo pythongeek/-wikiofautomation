@@ -1,0 +1,65 @@
+---
+import Layout from '@/layouts/Base.astro';
+export const prerender = false;
+
+import { getCollection } from 'astro:content';
+
+const session = Astro.locals.session;
+if (!session) return Astro.redirect('/admin/login');
+
+const news = await getCollection('news');
+news.sort((a, b) => (b.data.published || '').localeCompare(a.data.published || ''));
+---
+
+<Layout title="News | Admin">
+  <div class="flex min-h-screen bg-[#0B0B10] text-[#F2F1F7]">
+    <aside class="w-64 bg-[#1A1A2E] min-h-screen p-4 shrink-0">
+      <h2 class="text-xl font-bold text-[#C6FF3D] mb-6">Admin</h2>
+      <nav class="space-y-1 text-sm">
+        <a href="/admin/" class="block px-3 py-2 rounded hover:bg-[#2D2D44]">Dashboard</a>
+        <a href="/admin/wiki" class="block px-3 py-2 rounded hover:bg-[#2D2D44]">Wiki Entries</a>
+        <a href="/admin/marketplace" class="block px-3 py-2 rounded hover:bg-[#2D2D44]">Marketplace</a>
+        <a href="/admin/news" class="block px-3 py-2 rounded bg-[#5B4CFF]/20 text-[#C6FF3D] font-medium">News</a>
+        <a href="/admin/tasks" class="block px-3 py-2 rounded hover:bg-[#2D2D44]">Tasks</a>
+        <a href="/admin/ada" class="block px-3 py-2 rounded hover:bg-[#2D2D44]">Ada Log</a>
+        <a href="/admin/settings" class="block px-3 py-2 rounded hover:bg-[#2D2D44]">Settings</a>
+      </nav>
+    </aside>
+
+    <main class="flex-1 p-6 lg:p-8">
+      <div class="flex items-center justify-between mb-6">
+        <h1 class="text-3xl font-bold">News Posts</h1>
+        <a href="/admin/wiki/new" class="bg-[#C6FF3D] text-[#0B0B10] px-4 py-2 rounded font-medium hover:bg-[#B8F02E]">+ New Post</a>
+      </div>
+
+      <p class="text-sm text-gray-400 mb-4">{news.length} posts in vault</p>
+
+      <div class="bg-[#1A1A2E] border border-[#2D2D44] rounded-lg overflow-hidden">
+        <table class="w-full text-sm">
+          <thead class="bg-[#2D2D44]">
+            <tr>
+              <th class="px-4 py-3 text-left text-xs uppercase text-gray-400">Slug</th>
+              <th class="px-4 py-3 text-left text-xs uppercase text-gray-400">Title</th>
+              <th class="px-4 py-3 text-left text-xs uppercase text-gray-400">Published</th>
+              <th class="px-4 py-3 text-right text-xs uppercase text-gray-400">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {news.map(entry => (
+              <tr class="border-t border-[#2D2D44] hover:bg-[#2D2D44]/40">
+                <td class="px-4 py-3 font-mono text-xs text-[#3DE0FF]">{entry.slug}</td>
+                <td class="px-4 py-3 font-medium">{entry.data.title}</td>
+                <td class="px-4 py-3 text-xs text-gray-500">{entry.data.published || '—'}</td>
+                <td class="px-4 py-3 text-right">
+                  <a href={`/admin/news/${entry.slug}`} class="text-[#C6FF3D] hover:underline text-sm">Edit</a>
+                  <span class="mx-2 text-gray-600">·</span>
+                  <a href={`/news#${entry.slug}`} target="_blank" class="text-[#5B4CFF] hover:underline text-sm">View</a>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+</Layout>
