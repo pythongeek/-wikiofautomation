@@ -11,7 +11,8 @@
     "astro": "astro",
     "embed": "tsx scripts/embed-vault.ts",
     "seed-admin": "tsx scripts/seed-admin.ts",
-    "start": "node ./dist/server/entry.mjs"
+    "start": "node ./dist/server/entry.mjs",
+    "postinstall": "npm rebuild better-sqlite3 --build-from-source=false || node ./scripts/rebuild-better-sqlite3.cjs"
   },
   "dependencies": {
     "@astrojs/check": "^0.9.4",
