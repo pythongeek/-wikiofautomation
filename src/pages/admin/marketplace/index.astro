@@ -3,8 +3,8 @@ import Layout from '@/layouts/Base.astro';
 export const prerender = false;
 
 import { db } from '@/lib/db';
-import { listings, listings_queue } from '@/lib/db/schema';
-import { desc, eq, count } from 'drizzle-orm';
+import { listings } from '@/lib/db/schema';
+import { desc, eq } from 'drizzle-orm';
 import { getCollection } from 'astro:content';
 
 const session = Astro.locals.session;

@@ -19,6 +19,7 @@
     "@astrojs/node": "^9.0.0",
     "@astrojs/sitemap": "^3.2.1",
     "@node-rs/argon2": "^2.0.0",
+    "@types/better-sqlite3": "^7.6.12",
     "@types/node": "^22.10.0",
     "astro": "^5.0.0",
     "astro-pagefind": "^1.8.6",
@@ -30,7 +31,6 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "^7.6.12",
     "drizzle-kit": "^0.30.0",
     "tsx": "^4.19.2"
   },

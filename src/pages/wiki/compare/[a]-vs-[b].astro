@@ -7,7 +7,7 @@
  * If both exist in the wiki: render their content + an infobox table.
  * If only one exists: render that entry with a CTA to suggest the other.
  */
-import { getCollection, getEntry, type CollectionEntry } from 'astro:content';
+import { getCollection, type CollectionEntry } from 'astro:content';
 import Base from '~/layouts/Base.astro';
 
 type Wiki = CollectionEntry<'wiki'>;
@@ -31,12 +31,7 @@ export async function getStaticPaths() {
   return paths;
 }
 
-interface Props {
-  aEntry?: Wiki;
-  bEntry?: Wiki;
-  aKey: string;
-  bKey: string;
-}
+// Props are typed implicitly by getStaticPaths() above (Astro infers them at the route level).
 const { aEntry, bEntry, aKey, bKey } = Astro.props;
 
 const titleA = aEntry?.data.title ?? aKey;

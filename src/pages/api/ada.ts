@@ -34,7 +34,7 @@ function safe(s: unknown, max = 1000): string {
     .slice(0, max);
 }
 
-function buildContext(chunks: Awaited<ReturnType<typeof retrieve>>, intent: string): string {
+function buildContext(chunks: Awaited<ReturnType<typeof retrieve>>, _intent: string): string {
   if (!chunks.length) return '';
   const labels: Record<string, string> = {
     wiki: 'wiki entry',
@@ -98,14 +98,10 @@ export const POST: APIRoute = async ({ request }) => {
     const intentInfo = await classifyIntent(message);
     result.intent = intentInfo.intent;
 
-    // 2) RAG: top chunks from the most relevant collections
-    const candidatesCollections =
-      intentInfo.intent === 'marketplace' ? ['marketplace']
-      : intentInfo.intent === 'news' ? ['news']
-      : intentInfo.intent === 'wiki' ? ['wiki']
-      : ['wiki', 'marketplace']; // "general" = wiki-leaning fallback
-
-    const chunks = await retrieve(message, 5);
+    // 2) RAG: top chunks from the most relevant collections.
+        // (Intent-specific collection routing is currently a single-collection pass via retrieve();
+        //  if/when we split per-collection, re-introduce a candidatesCollections array here.)
+        const chunks = await retrieve(message, 5);
     const context = buildContext(chunks, intentInfo.intent);
 
     // 3) Compose final answer with system prompt + retrieved context + user message
