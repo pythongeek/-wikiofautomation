@@ -1,3 +1,9 @@
+# Infrastructure & secrets (never commit)
+deploy/
+skills/
+.hermes/
+backup/
+
 # Build output
 dist/
 .astro/
