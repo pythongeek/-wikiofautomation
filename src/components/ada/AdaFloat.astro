@@ -1,0 +1,440 @@
+---
+/**
+ * AdaFloat.astro — sticky floating Ada chat launcher
+ * Per master plan §3 + §4: Ada is ONE persistent component across the whole site.
+ *   - Bottom-right launcher button (this file)
+ *   - Hero-embedded version (AdaBar.astro) is the SAME assistant, not a second one
+ *
+ * Click the FAB → expands to a chat panel bound to the same /api/ada endpoint
+ * the hero uses. State persists across page transitions via sessionStorage
+ * (so the panel stays open during ClientRouter navigations).
+ *
+ * Accessibility:
+ *   - aria-expanded reflects panel state
+ *   - Escape closes the panel
+ *   - focus moves into input on open, restored to button on close
+ *   - prefers-reduced-motion disables the orb pulse
+ */
+---
+
+<div class="ada-float" data-open="false">
+  <!-- Floating action button -->
+  <button
+    class="ada-fab"
+    aria-label="Open Ada assistant"
+    aria-expanded="false"
+    aria-controls="ada-panel"
+    id="adaFab"
+    type="button"
+  >
+    <span class="orb" aria-hidden="true">
+      <span class="orb-ring r1"></span>
+      <span class="orb-ring r2"></span>
+      <span class="orb-core"></span>
+    </span>
+    <span class="fab-label">Ask Ada</span>
+  </button>
+
+  <!-- Chat panel -->
+  <section
+    class="ada-panel"
+    id="ada-panel"
+    role="dialog"
+    aria-label="Ada assistant"
+    aria-modal="false"
+    hidden
+  >
+    <header class="panel-head">
+      <div class="panel-id">
+        <span class="panel-orb" aria-hidden="true"></span>
+        <div>
+          <p class="panel-name">Ada</p>
+          <p class="panel-status"><span class="status-dot"></span>Online · reads the whole site</p>
+        </div>
+      </div>
+      <button class="panel-close" id="adaClose" aria-label="Close Ada" type="button">×</button>
+    </header>
+
+    <div class="panel-body" id="adaThread" aria-live="polite">
+      <div class="msg ada">
+        <p>Hi — I'm Ada. Ask me anything about agents, workflows, protocols, or what's trending in automation.</p>
+      </div>
+    </div>
+
+    <form class="panel-input" id="adaForm" autocomplete="off">
+      <input
+        type="text"
+        id="adaInput"
+        placeholder="Ask Ada anything…"
+        aria-label="Message Ada"
+        autocomplete="off"
+      />
+      <button type="submit" class="panel-send" aria-label="Send">↑</button>
+    </form>
+  </section>
+</div>
+
+<script>
+  (() => {
+    const float = document.querySelector<HTMLElement>('.ada-float');
+    const fab = document.getElementById('adaFab');
+    const closeBtn = document.getElementById('adaClose');
+    const panel = document.getElementById('ada-panel');
+    const form = document.getElementById('adaForm') as HTMLFormElement | null;
+    const input = document.getElementById('adaInput') as HTMLInputElement | null;
+    const thread = document.getElementById('adaThread');
+    if (!float || !fab || !panel || !form || !input || !thread || !closeBtn) return;
+
+    let lastFocus: HTMLElement | null = null;
+
+    const open = () => {
+      panel.hidden = false;
+      float.dataset.open = 'true';
+      fab.setAttribute('aria-expanded', 'true');
+      lastFocus = document.activeElement as HTMLElement;
+      setTimeout(() => input.focus(), 60);
+      try { sessionStorage.setItem('ada_open', '1'); } catch {}
+    };
+
+    const close = () => {
+      panel.hidden = true;
+      float.dataset.open = 'false';
+      fab.setAttribute('aria-expanded', 'false');
+      if (lastFocus) lastFocus.focus();
+      try { sessionStorage.removeItem('ada_open'); } catch {}
+    };
+
+    fab.addEventListener('click', () => {
+      if (panel.hidden) open(); else close();
+    });
+    closeBtn.addEventListener('click', close);
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !panel.hidden) close();
+    });
+
+    // Restore across ClientRouter navigations
+    try {
+      if (sessionStorage.getItem('ada_open') === '1') open();
+    } catch {}
+
+    const escape = (s: string) =>
+      String(s).replace(/&/g, '&').replace(/</g, '<').replace(/>/g, '>')
+        .replace(/"/g, '"').replace(/'/g, '&#39;');
+
+    const addMsg = (who: 'user' | 'ada', html: string) => {
+      const div = document.createElement('div');
+      div.className = `msg ${who}`;
+      div.innerHTML = html;
+      thread.appendChild(div);
+      thread.scrollTop = thread.scrollHeight;
+      return div;
+    };
+
+    const setLoading = (el: HTMLElement) => {
+      el.innerHTML = '<p><span class="dots"><span>.</span><span>.</span><span>.</span></span></p>';
+    };
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const q = (input.value || '').trim();
+      if (!q) return;
+      addMsg('user', `<p>${escape(q)}</p>`);
+      input.value = '';
+      const adaEl = addMsg('ada', '<p>Thinking…</p>');
+      setLoading(adaEl);
+      try {
+        const res = await fetch('/api/ada', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ message: q }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || data.error) {
+          adaEl.innerHTML = `<p>${escape(data.error || 'Sorry, I couldn\'t reach my knowledge base right now. Try again in a moment.')}</p>`;
+          return;
+        }
+        const reply = escape(data.reply || '');
+        const links = (data.links || []).map((l: any) =>
+          `<a class="reply-link" href="${escape(l.url)}">${escape(l.anchor || l.url)}</a>`
+        ).join(' ');
+        adaEl.innerHTML = `<p>${reply}</p>${links ? `<div class="reply-links">${links}</div>` : ''}`;
+      } catch {
+        adaEl.innerHTML = '<p>Network error. Try again in a moment.</p>';
+      }
+      thread.scrollTop = thread.scrollHeight;
+    });
+  })();
+</script>
+
+<style>
+  .ada-float {
+    position: fixed;
+    bottom: 22px;
+    right: 22px;
+    z-index: 9999;
+    --fab-size: 56px;
+  }
+
+  /* Floating action button */
+  .ada-fab {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 18px 0 6px;
+    height: var(--fab-size);
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--border);
+    background: rgba(20, 20, 29, 0.92);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    cursor: pointer;
+    transition: all 0.22s ease;
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+    color: var(--text);
+    font-family: var(--font-body);
+  }
+  .ada-fab:hover {
+    border-color: var(--indigo-soft);
+    transform: translateY(-2px);
+    box-shadow: 0 12px 36px rgba(91, 76, 255, 0.25);
+  }
+  .ada-float[data-open='true'] .ada-fab { opacity: 0; pointer-events: none; transform: scale(0.9); }
+
+  .orb {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .orb-core {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--lime);
+    box-shadow: 0 0 14px var(--lime);
+    position: relative;
+    z-index: 2;
+  }
+  .orb-ring {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    border: 1px solid var(--lime);
+    opacity: 0.4;
+    animation: orbring 2.6s infinite ease-out;
+  }
+  .orb-ring.r2 { animation-delay: 1.3s; }
+  @keyframes orbring {
+    0% { transform: scale(0.6); opacity: 0.5; }
+    100% { transform: scale(1.6); opacity: 0; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .orb-ring { animation: none; }
+  }
+
+  .fab-label {
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  /* Panel */
+  .ada-panel {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 360px;
+    max-width: calc(100vw - 44px);
+    height: 520px;
+    max-height: calc(100vh - 64px);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(91, 76, 255, 0.06);
+    animation: panelIn 0.24s ease-out;
+  }
+  @keyframes panelIn {
+    from { opacity: 0; transform: translateY(12px) scale(0.96); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .ada-panel { animation: none; }
+  }
+
+  .panel-head {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(91, 76, 255, 0.04);
+  }
+  .panel-id {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .panel-orb {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 40% 40%, var(--lime), rgba(198, 255, 61, 0.4));
+    box-shadow: 0 0 12px rgba(198, 255, 61, 0.45);
+    flex-shrink: 0;
+  }
+  .panel-name {
+    font-weight: 600;
+    font-size: 14px;
+  }
+  .panel-status {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--mint);
+    box-shadow: 0 0 6px var(--mint);
+    animation: livepulse 1.8s infinite;
+    display: inline-block;
+  }
+  @keyframes livepulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+  .panel-close {
+    background: none;
+    border: none;
+    color: var(--muted-2);
+    font-size: 22px;
+    cursor: pointer;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+  }
+  .panel-close:hover { color: var(--text); background: var(--surface-2); }
+
+  .panel-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    scrollbar-width: thin;
+  }
+  .panel-body::-webkit-scrollbar { width: 5px; }
+  .panel-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  .msg {
+    max-width: 86%;
+    padding: 10px 13px;
+    border-radius: 14px;
+    font-size: 13.5px;
+    line-height: 1.5;
+    animation: msgIn 0.18s ease-out;
+  }
+  @keyframes msgIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; } }
+  .msg.ada {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    align-self: flex-start;
+    border-bottom-left-radius: 4px;
+  }
+  .msg.user {
+    background: var(--indigo);
+    color: white;
+    align-self: flex-end;
+    border-bottom-right-radius: 4px;
+  }
+  .msg p { margin: 0; }
+  .msg p + p { margin-top: 8px; }
+
+  .reply-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+  }
+  .reply-link {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--cyan);
+    border: 1px solid var(--border);
+    padding: 4px 9px;
+    border-radius: var(--radius-pill);
+    text-decoration: none;
+    transition: all 0.15s;
+  }
+  .reply-link:hover { border-color: var(--cyan); background: rgba(61, 224, 255, 0.08); }
+
+  .dots span {
+    animation: dots 1.4s infinite;
+    display: inline-block;
+  }
+  .dots span:nth-child(2) { animation-delay: 0.2s; }
+  .dots span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes dots {
+    0%, 60%, 100% { opacity: 0.25; }
+    30% { opacity: 1; }
+  }
+
+  .panel-input {
+    border-top: 1px solid var(--border);
+    padding: 10px;
+    display: flex;
+    gap: 8px;
+    background: var(--bg-2);
+  }
+  .panel-input input {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 10px 14px;
+    border-radius: var(--radius-pill);
+    font-family: var(--font-body);
+    font-size: 13.5px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .panel-input input:focus { border-color: var(--indigo-soft); }
+  .panel-input input::placeholder { color: var(--muted-2); }
+  .panel-send {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    border: none;
+    background: var(--lime);
+    color: var(--bg);
+    font-size: 16px;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: all 0.15s;
+  }
+  .panel-send:hover { box-shadow: 0 0 14px rgba(198, 255, 61, 0.5); }
+
+  @media (max-width: 620px) {
+    .ada-float { bottom: 14px; right: 14px; --fab-size: 50px; }
+    .fab-label { display: none; }
+    .ada-fab { padding: 0; width: var(--fab-size); justify-content: center; }
+    .ada-panel { width: calc(100vw - 28px); height: 70vh; }
+  }
+</style>

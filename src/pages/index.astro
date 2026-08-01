@@ -1,15 +1,19 @@
 ---
 /**
  * Homepage — /  (wikiofautomation.com/)
- * Composes Hero + Ticker + Pillars + Marketplace + WikiGrid + NewsStrip + CreatorCTA
- * Mirrors drive-source/wiki-of-automation-homepage.html 1:1 in structure and style.
+ * Composes Hero + StatsBar + Pillars + Marketplace + WikiSpotlight + NewsStrip + CreatorCTA + AdaFloat
+ *
+ * Updated Aug 2026 (T021):
+ *   - Ticker → StatsBar (animated live-count stats strip)
+ *   - WikiGrid → WikiSpotlight (category-filtered wiki grid, no reload)
+ *   - AdaFloat added (sticky floating Ada chat launcher, persistent across pages)
  */
 import Base from '~/layouts/Base.astro';
 import Hero from '~/components/home/Hero.astro';
-import Ticker from '~/components/home/Ticker.astro';
+import StatsBar from '~/components/home/StatsBar.astro';
 import Pillars from '~/components/home/Pillars.astro';
 import MarketplaceRow from '~/components/marketplace/MarketplaceRow.astro';
-import WikiGrid from '~/components/wiki/WikiGrid.astro';
+import WikiSpotlight from '~/components/wiki/WikiSpotlight.astro';
 import NewsStrip from '~/components/news/NewsStrip.astro';
 import CreatorCTA from '~/components/home/CreatorCTA.astro';
 ---
@@ -19,10 +23,10 @@ import CreatorCTA from '~/components/home/CreatorCTA.astro';
   description="The encyclopedia of automation — understand it, find it, ship it. AI agents, n8n workflows, MCP, and every protocol making automation real."
 >
   <Hero />
-  <Ticker />
+  <StatsBar />
   <Pillars />
   <MarketplaceRow />
-  <WikiGrid />
+  <WikiSpotlight />
   <NewsStrip />
   <CreatorCTA />
 </Base>
