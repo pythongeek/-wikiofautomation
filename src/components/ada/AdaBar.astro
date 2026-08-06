@@ -1,76 +1,153 @@
 ---
 /**
- * AdaBar.astro — the hero ask input + chip row
- * Typewriter placeholder cycles through prompts (port of Drive script).
- * Chips prefill the input on click.
- * Submits to POST /api/ada (wired in T010).
+ * AdaBar.astro v2
+ * - Real-time suggestions dropdown (debounced, min 2 chars)
+ * - Intent-label on reply header
+ * - Keyboard nav: Escape closes suggestions
  */
-const chips = [
-  'Find a free lead-gen agent',
-  'What is MCP?',
-  'n8n vs Zapier',
-  'Trending this week',
-];
-
-const prompts = [
+const placeholders = [
   'Ask Ada anything…',
-  'Find me a free lead-gen agent…',
-  'What is MCP?',
+  'What is Model Context Protocol?',
+  'Find a free Slack automation agent…',
   'Compare n8n vs Zapier…',
-  'Show me trending workflows this week…',
+  'What shipped in AI this week?',
+  'Best agent framework for Python?',
 ];
 ---
 
-<div class="ask">
-  <div class="ask-input" id="askInput">
-    <span class="caret">›</span>
+<div class="ada-wrap" id="adaWrap">
+  <!-- Search input row -->
+  <div class="ada-input" id="adaInput">
+    <span class="caret" aria-hidden="true">›</span>
     <input
       id="askField"
       type="text"
-      placeholder="Ask Ada anything…"
       autocomplete="off"
       aria-label="Ask Ada anything about automation"
+      aria-expanded="false"
+      aria-autocomplete="list"
+      aria-controls="adaSuggestions"
+      role="combobox"
     >
-    <button class="ask-send" aria-label="Send" type="button" id="askSend">↑</button>
+    <button class="ada-send" id="askSend" aria-label="Send question" type="button">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <path d="M8 13V3M3 8l5-5 5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
   </div>
-  <div class="chips">
-    {chips.map(c => <span class="chip" data-prompt={c}>{c}</span>)}
+
+  <!-- Suggestions dropdown -->
+  <div class="ada-suggestions" id="adaSuggestions" role="listbox" hidden>
+    <!-- Populated by JS -->
   </div>
-  <div class="reply" id="askReply" hidden></div>
+
+  <!-- Reply card -->
+  <div class="ada-reply" id="adaReply" hidden role="region" aria-live="polite" aria-label="Ada's answer">
+    <!-- Populated by JS -->
+  </div>
 </div>
 
-<script is:inline define:vars={{ chips, prompts }}>
+<script is:inline define:vars={{ placeholders }}>
 (() => {
+  const wrap = document.getElementById('adaWrap');
   const input = document.getElementById('askField');
   const send = document.getElementById('askSend');
-  const reply = document.getElementById('askReply');
-  const inputBox = document.getElementById('askInput');
-  if (!input || !reply || !send || !inputBox) return;
+  const replyEl = document.getElementById('adaReply');
+  const suggestEl = document.getElementById('adaSuggestions');
+  const adaInput = document.getElementById('adaInput');
+  if (!wrap || !input || !send || !replyEl || !suggestEl || !adaInput) return;
 
-  function bind() {
-    document.querySelectorAll('.chip').forEach(c => {
-      c.addEventListener('click', () => {
-        input.value = c.textContent || '';
-        input.focus();
+  // ── Typewriter placeholder ──────────────────────────────────────────
+  let pi = 0, ci = 0, del = false;
+  function typeLoop() {
+    if (document.activeElement === input) { setTimeout(typeLoop, 600); return; }
+    const full = placeholders[pi];
+    input.setAttribute('placeholder', full.slice(0, ci));
+    if (!del) {
+      ci++;
+      if (ci > full.length) { del = true; setTimeout(typeLoop, 1600); return; }
+    } else {
+      ci--;
+      if (ci < 0) { del = false; pi = (pi + 1) % placeholders.length; ci = 0; }
+    }
+    setTimeout(typeLoop, del ? 22 : 52);
+  }
+  typeLoop();
+
+  // ── Suggestions ────────────────────────────────────────────────────
+  const QUICK = [
+    { q: 'What is MCP?', hint: 'Model Context Protocol overview' },
+    { q: 'Best free agents for email automation', hint: 'Marketplace picks' },
+    { q: 'n8n vs Make vs Zapier comparison', hint: 'Wiki comparison page' },
+    { q: 'How does RAG work?', hint: 'Concepts — wiki entry' },
+    { q: 'Latest AI automation launches', hint: 'Newsroom digest' },
+    { q: 'Publish my own agent', hint: 'Marketplace creator guide' },
+  ];
+
+  let debounceTimer = null;
+  input.addEventListener('input', () => {
+    clearTimeout(debounceTimer);
+    const q = input.value.trim();
+    if (q.length < 2) { hideSuggestions(); return; }
+    debounceTimer = setTimeout(() => showSuggestions(q), 160);
+  });
+
+  function showSuggestions(q) {
+    const lq = q.toLowerCase();
+    const matches = QUICK.filter(s => s.q.toLowerCase().includes(lq) || s.hint.toLowerCase().includes(lq)).slice(0, 3);
+    if (!matches.length) { hideSuggestions(); return; }
+    suggestEl.innerHTML = matches.map((s, i) =>
+      `<div class="sug-item" role="option" tabindex="0" data-q="${escape(s.q)}">
+        <span class="sug-q">${s.q}</span>
+        <span class="sug-hint">${s.hint}</span>
+      </div>`
+    ).join('');
+    suggestEl.hidden = false;
+    input.setAttribute('aria-expanded', 'true');
+    suggestEl.querySelectorAll('.sug-item').forEach(item => {
+      item.addEventListener('click', () => {
+        input.value = unescape(item.dataset.q || '');
+        hideSuggestions();
+        doSubmit();
+      });
+      item.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { item.click(); }
       });
     });
-    send.addEventListener('click', submit);
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        submit();
-      }
-    });
-    input.addEventListener('focus', () => inputBox.classList.add('active'));
-    input.addEventListener('blur', () => inputBox.classList.remove('active'));
   }
 
-  async function submit() {
+  function hideSuggestions() {
+    suggestEl.hidden = true;
+    input.setAttribute('aria-expanded', 'false');
+    suggestEl.innerHTML = '';
+  }
+
+  // Close on outside click
+  document.addEventListener('click', e => {
+    if (!wrap.contains(e.target)) hideSuggestions();
+  });
+
+  // Escape key
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Escape') hideSuggestions();
+    if (e.key === 'Enter') { e.preventDefault(); hideSuggestions(); doSubmit(); }
+  });
+
+  // Active state
+  input.addEventListener('focus', () => adaInput.classList.add('active'));
+  input.addEventListener('blur', () => adaInput.classList.remove('active'));
+
+  // ── Submit ──────────────────────────────────────────────────────────
+  send.addEventListener('click', doSubmit);
+
+  async function doSubmit() {
     const q = (input.value || '').trim();
     if (!q) return;
-    reply.hidden = false;
-    reply.textContent = 'Thinking…';
-    reply.classList.add('loading');
+    hideSuggestions();
+    replyEl.hidden = false;
+    replyEl.innerHTML = renderSkeleton();
+    replyEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
     try {
       const res = await fetch('/api/ada', {
         method: 'POST',
@@ -79,166 +156,241 @@ const prompts = [
       });
       const data = await res.json();
       if (!res.ok || data.error) {
-        reply.innerHTML = `<strong>Ada:</strong> ${escapeHtml(data.error || 'Sorry, I couldn\'t reach my knowledge base right now. Try again in a moment.')}`;
-        reply.classList.remove('loading');
+        replyEl.innerHTML = renderError(data.error || 'Ada couldn\'t reach the knowledge base. Try again in a moment.');
         return;
       }
-      reply.innerHTML = renderReply(data);
-      reply.classList.remove('loading');
-    } catch (err) {
-      reply.innerHTML = `<strong>Ada:</strong> Network error. Try again in a moment.`;
-      reply.classList.remove('loading');
+      replyEl.innerHTML = renderReply(data, q);
+    } catch {
+      replyEl.innerHTML = renderError('Network error — check your connection and try again.');
     }
   }
 
-  function escapeHtml(s) {
-    return String(s)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
+  // ── Render helpers ──────────────────────────────────────────────────
+  function esc(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
-  function renderReply(d) {
-    const reply_ = escapeHtml(d.reply || '');
-    const links = (d.links || []).map(l =>
-      `<a class="reply-link" href="${escapeHtml(l.url)}">${escapeHtml(l.anchor || l.url)}</a>`
-    ).join(' ');
-    return `<strong>Ada:</strong> ${reply_}${links ? '<div class="reply-links">' + links + '</div>' : ''}`;
+  function renderSkeleton() {
+    return `<div class="reply-inner loading">
+      <div class="reply-meta"><span class="reply-badge">ADA</span><span class="reply-thinking">thinking…</span></div>
+      <div class="skel-line" style="width:88%"></div>
+      <div class="skel-line" style="width:72%"></div>
+      <div class="skel-line" style="width:60%"></div>
+    </div>`;
   }
 
-  // Typewriter placeholder (matches Drive behaviour)
-  function bindTypewriter() {
-    let pIndex = 0, cIndex = 0, deleting = false;
-    function loop() {
-      if (document.activeElement === input) { setTimeout(loop, 500); return; }
-      const full = prompts[pIndex];
-      input.setAttribute('placeholder', full.slice(0, cIndex));
-      if (!deleting) {
-        cIndex++;
-        if (cIndex > full.length) { deleting = true; setTimeout(loop, 1400); return; }
-      } else {
-        cIndex--;
-        if (cIndex < 0) { deleting = false; pIndex = (pIndex + 1) % prompts.length; cIndex = 0; }
-      }
-      setTimeout(loop, deleting ? 28 : 55);
-    }
-    loop();
+  function renderError(msg) {
+    return `<div class="reply-inner error">
+      <div class="reply-meta"><span class="reply-badge error-badge">ADA</span></div>
+      <p>${esc(msg)}</p>
+    </div>`;
   }
 
-  bind();
-  bindTypewriter();
+  function renderReply(d, q) {
+    const intent = (d.intent || 'general').toUpperCase();
+    const links = (d.links || []).filter((l, i, arr) => arr.findIndex(x => x.url === l.url) === i).slice(0, 4);
+    const linkChips = links.length
+      ? `<div class="reply-links">${links.map(l =>
+          `<a class="reply-chip" href="${esc(l.url)}">${esc(l.anchor || l.url)}</a>`
+        ).join('')}</div>` : '';
+    return `<div class="reply-inner">
+      <div class="reply-meta">
+        <span class="reply-badge">ADA</span>
+        <span class="reply-intent">${esc(intent)}</span>
+      </div>
+      <p class="reply-text">${esc(d.reply || '')}</p>
+      ${linkChips}
+    </div>`;
+  }
+
+  // Expose submit globally so Hero intent chips can call it
+  window.__adaSubmit = doSubmit;
 })();
 </script>
 
 <style>
-  .ask {
+  .ada-wrap {
     width: 100%;
-    max-width: 640px;
+    max-width: 660px;
     position: relative;
-    z-index: 2;
+    z-index: 10;
   }
 
-  .ask-input {
+  /* ── Input row ── */
+  .ada-input {
     display: flex;
     align-items: center;
-    gap: 12px;
-    background: rgba(20, 20, 29, 0.75);
+    gap: 10px;
+    background: rgba(20,20,29,0.82);
     border: 1px solid var(--border);
     border-radius: var(--radius-pill);
     padding: 8px 8px 8px 22px;
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    transition: all 0.25s ease;
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    transition: border-color 0.2s, box-shadow 0.2s;
   }
-  .ask-input.active {
+  .ada-input.active {
     border-color: var(--indigo-soft);
-    box-shadow: 0 0 0 4px rgba(91, 76, 255, 0.15), 0 0 30px rgba(61, 224, 255, 0.12);
+    box-shadow: 0 0 0 4px rgba(91,76,255,0.14), 0 0 36px rgba(61,224,255,0.10);
   }
+
   .caret {
     color: var(--muted-2);
     font-family: var(--font-mono);
-    font-size: 15px;
+    font-size: 18px;
+    line-height: 1;
+    flex-shrink: 0;
   }
-  input#askField {
+
+  #askField {
     flex: 1;
-    background: none;
+    background: transparent;
     border: none;
     outline: none;
     color: var(--text);
     font-family: var(--font-body);
     font-size: 15.5px;
     padding: 10px 0;
+    min-width: 0;
   }
-  input#askField::placeholder { color: var(--muted-2); }
+  #askField::placeholder { color: var(--muted-2); }
 
-  .ask-send {
-    width: 38px; height: 38px;
+  .ada-send {
+    width: 40px;
+    height: 40px;
     border-radius: 50%;
     border: none;
     background: var(--lime);
     color: var(--bg);
-    font-size: 16px;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.2s ease;
-    flex-shrink: 0;
-  }
-  .ask-send:hover { box-shadow: 0 0 18px rgba(198, 255, 61, 0.5); }
-
-  .chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 9px;
-    justify-content: center;
-    margin-top: 16px;
-  }
-  .chip {
-    font-family: var(--font-mono);
-    font-size: 12.5px;
-    color: var(--muted);
-    border: 1px solid var(--border);
-    padding: 7px 14px;
-    border-radius: var(--radius-pill);
     cursor: pointer;
-    background: rgba(20, 20, 29, 0.5);
+    flex-shrink: 0;
     transition: all 0.2s ease;
   }
-  .chip:hover {
-    color: var(--text);
-    border-color: var(--cyan);
-    box-shadow: 0 0 14px rgba(61, 224, 255, 0.18);
-  }
+  .ada-send:hover { box-shadow: 0 0 20px rgba(198,255,61,0.55); transform: scale(1.06); }
+  .ada-send:focus-visible { outline: 2px solid var(--lime); outline-offset: 3px; }
 
-  .reply {
-    margin-top: 24px;
-    text-align: left;
+  /* ── Suggestions ── */
+  .ada-suggestions {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0; right: 0;
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius);
-    padding: 18px 22px;
-    font-size: 14.5px;
-    line-height: 1.6;
-    color: var(--text);
+    overflow: hidden;
+    z-index: 50;
+    box-shadow: 0 16px 40px rgba(0,0,0,0.4);
   }
-  .reply.loading { color: var(--muted); }
-  .reply strong { color: var(--lime); margin-right: 6px; font-family: var(--font-mono); font-size: 12.5px; letter-spacing: 0.08em; }
+
+  .sug-item {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 12px 18px;
+    cursor: pointer;
+    transition: background 0.15s;
+    border-bottom: 1px solid var(--border);
+  }
+  .sug-item:last-child { border-bottom: none; }
+  .sug-item:hover, .sug-item:focus { background: rgba(91,76,255,0.1); outline: none; }
+  .sug-q { font-size: 14px; color: var(--text); }
+  .sug-hint { font-size: 12px; color: var(--muted); font-family: var(--font-mono); }
+
+  /* ── Reply card ── */
+  .ada-reply {
+    margin-top: 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+
+  .reply-inner {
+    padding: 18px 22px;
+  }
+  .reply-inner.loading { opacity: 0.7; }
+  .reply-inner.error { border-left: 3px solid var(--amber); }
+
+  .reply-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .reply-badge {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    background: var(--lime);
+    color: var(--bg);
+    padding: 3px 8px;
+    border-radius: var(--radius-pill);
+    font-weight: 700;
+  }
+  .error-badge { background: var(--amber); }
+
+  .reply-intent {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--indigo-soft);
+    letter-spacing: 0.1em;
+  }
+
+  .reply-thinking {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--muted);
+    animation: blink 1.2s infinite;
+  }
+  @keyframes blink { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
+
+  .reply-text {
+    font-size: 14.5px;
+    line-height: 1.65;
+    color: var(--text);
+    margin-bottom: 14px;
+  }
+
   .reply-links {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
-    margin-top: 12px;
+    gap: 7px;
   }
-  .reply-link {
+
+  .reply-chip {
     font-family: var(--font-mono);
-    font-size: 12px;
+    font-size: 11.5px;
     color: var(--cyan);
     border: 1px solid var(--border);
-    padding: 5px 10px;
+    padding: 5px 11px;
     border-radius: var(--radius-pill);
     transition: all 0.15s;
+    text-decoration: none;
   }
-  .reply-link:hover { border-color: var(--cyan); background: rgba(61, 224, 255, 0.08); }
+  .reply-chip:hover {
+    border-color: var(--cyan);
+    background: rgba(61,224,255,0.08);
+  }
+
+  /* Skeleton loader */
+  .skel-line {
+    height: 12px;
+    background: linear-gradient(90deg, var(--border) 25%, rgba(91,76,255,0.15) 50%, var(--border) 75%);
+    background-size: 200% 100%;
+    border-radius: 6px;
+    margin-bottom: 10px;
+    animation: shimmer 1.4s infinite;
+  }
+  @keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+
+  @media (max-width: 640px) {
+    #askField { font-size: 14px; }
+  }
 </style>

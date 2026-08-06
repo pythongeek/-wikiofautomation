@@ -1,14 +1,11 @@
 /**
- * src/lib/ada/rag.ts — vault RAG over content collections.
+ * src/lib/ada/rag.ts — Vault RAG over content collections + SQLite Database.
  *
- * For v1, we use a "grep-grade" retrieval: scan the rendered Astro content
- * collection entries, score each chunk by keyword overlap with the query,
- * and return the top-N. We can swap to vector search later via sqlite-vec.
- *
- * The function is sync at the chunking layer (filesystem reads), and we
- * run the heavy lift inside the request so pages stay incremental.
+ * Scans content collections and dynamic database items (listings, wiki entries, site routes),
+ * scores chunks by keyword overlap, and returns top matches.
  */
 import { getCollection, type CollectionEntry } from 'astro:content';
+import { getDbKnowledgeChunks } from './knowledge';
 
 export interface RagChunk {
   slug: string;
@@ -37,7 +34,6 @@ function tokenize(s: string): string[] {
 function makeSnippet(body: string | undefined, queryTokens: string[]): string {
   if (!body) return '';
   const text = body.replace(/```[^`]*```/g, ' ').replace(/[#*_]/g, ' ');
-  // Find a window around the first matched query token
   for (const tok of queryTokens) {
     const idx = text.toLowerCase().indexOf(tok);
     if (idx >= 0) {
@@ -84,16 +80,13 @@ function entrySummary(entry: AnyEntry): string {
 }
 
 function entryBody(entry: AnyEntry): string {
-  // Astro content entries expose body as string in v5
   const b = (entry as { body?: string }).body;
   return typeof b === 'string' ? b : '';
 }
 
 function kindFor(entry: AnyEntry): RagChunk['kind'] {
-  // Astro provides collection id via `entry.collection` (e.g. 'wiki' | 'marketplace' | 'news')
   const c = (entry as { collection?: string }).collection;
   if (c === 'wiki' || c === 'marketplace' || c === 'news') return c;
-  // Fallback: legacy id field
   const id = (entry as { id?: string }).id;
   if (typeof id === 'string') {
     if (id.includes('wiki')) return 'wiki';
@@ -113,21 +106,13 @@ function urlFor(entry: AnyEntry, kind: RagChunk['kind']): string {
   return `/marketplace/${entry.slug}`;
 }
 
-function scoreEntry(entry: AnyEntry, qTokens: string[]): number {
-  if (qTokens.length === 0) return 0;
-  const title = entryTitle(entry).toLowerCase();
-  const summary = entrySummary(entry).toLowerCase();
-  const body = entryBody(entry).toLowerCase();
-  const tags = entryTags(entry).join(' ').toLowerCase();
-  const haystack = `${title} ${summary} ${body} ${tags}`;
-
+function scoreText(haystack: string, title: string, summary: string, qTokens: string[]): number {
   let score = 0;
   for (const tok of qTokens) {
     if (!tok) continue;
-    if (title.includes(tok)) score += 5;
-    if (tags.includes(tok)) score += 3;
-    if (summary.includes(tok)) score += 2;
-    const matches = haystack.match(new RegExp(`\\b${escapeRe(tok)}\\b`, 'g'));
+    if (title.toLowerCase().includes(tok)) score += 5;
+    if (summary.toLowerCase().includes(tok)) score += 3;
+    const matches = haystack.toLowerCase().match(new RegExp(`\\b${escapeRe(tok)}\\b`, 'g'));
     score += Math.min(matches ? matches.length : 0, 4);
   }
   return score;
@@ -137,7 +122,6 @@ export async function retrieve(query: string, limit = 5): Promise<RagChunk[]> {
   const qTokens = tokenize(query);
   if (qTokens.length === 0) return [];
 
-  // Each getCollection returns a specifically-typed array; we widen to AnyEntry.
   let wiki: AnyEntry[] = [];
   let mkt: AnyEntry[] = [];
   let news: AnyEntry[] = [];
@@ -159,23 +143,56 @@ export async function retrieve(query: string, limit = 5): Promise<RagChunk[]> {
   }
 
   const allEntries: AnyEntry[] = [...wiki, ...mkt, ...news];
-
   const scored: RagChunk[] = [];
+
+  // 1. Score Content Collection entries
   for (const e of allEntries) {
-    const score = scoreEntry(e, qTokens);
+    const title = entryTitle(e);
+    const summary = entrySummary(e);
+    const body = entryBody(e);
+    const tags = entryTags(e).join(' ');
+    const haystack = `${title} ${summary} ${body} ${tags}`;
+
+    const score = scoreText(haystack, title, summary, qTokens);
     if (score <= 0) continue;
+
     const kind = kindFor(e);
     scored.push({
       slug: e.slug ?? '',
       category: entryCategory(e, kind),
       kind,
-      title: entryTitle(e),
-      snippet: makeSnippet(entryBody(e), qTokens),
+      title,
+      snippet: makeSnippet(body, qTokens),
       url: urlFor(e, kind),
       score,
     });
   }
 
+  // 2. Score SQLite Database & Site Route Knowledge Chunks
+  try {
+    const dbChunks = await getDbKnowledgeChunks();
+    for (const chunk of dbChunks) {
+      const score = scoreText(`${chunk.title} ${chunk.snippet}`, chunk.title, chunk.snippet, qTokens);
+      if (score > 0) {
+        scored.push({ ...chunk, score });
+      }
+    }
+  } catch (err) {
+    console.error('[rag] DB Knowledge Retrieval Error:', err instanceof Error ? err.message : err);
+  }
+
+  // Sort by score descending and return top matches
   scored.sort((a, b) => b.score - a.score);
-  return scored.slice(0, limit);
+
+  // Deduplicate by URL
+  const seen = new Set<string>();
+  const uniqueScored: RagChunk[] = [];
+  for (const item of scored) {
+    if (!seen.has(item.url)) {
+      seen.add(item.url);
+      uniqueScored.push(item);
+    }
+  }
+
+  return uniqueScored.slice(0, limit);
 }

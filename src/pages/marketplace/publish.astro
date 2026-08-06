@@ -1,0 +1,235 @@
+---
+import Base from '~/layouts/Base.astro';
+export const prerender = false;
+
+const isSubmitted = Astro.url.searchParams.get('submitted') === 'true';
+---
+
+<Base
+  title="Publish Your Agent or Workflow | Marketplace"
+  description="Publish your AI agent, n8n workflow, or AI OS template to Wiki of Automation and keep up to 90% of the revenue."
+>
+  <main class="publish-container">
+    <div class="publish-header">
+      <span class="eyebrow font-mono">CREATOR PORTAL</span>
+      <h1>Publish your agent or workflow.</h1>
+      <p class="sub font-body">
+        Ship your automation tool to thousands of active builders. We handle discovery, hosting, and knowledge indexing with Ada AI.
+      </p>
+    </div>
+
+    {isSubmitted ? (
+      <div class="success-banner">
+        <div class="success-icon">✓</div>
+        <h2>Submission received!</h2>
+        <p>Your listing has been submitted to the admin queue. Once approved, it will be indexed across the marketplace and Ada AI.</p>
+        <a href="/marketplace" class="btn-primary">Browse Marketplace →</a>
+      </div>
+    ) : (
+      <div class="form-wrapper">
+        <form method="POST" action="/api/marketplace/submit" class="publish-form">
+          <div class="form-group">
+            <label for="title" class="font-mono">Tool / Agent Title *</label>
+            <input type="text" id="title" name="title" required placeholder="e.g. Inbox Triage Support Agent" />
+          </div>
+
+          <div class="grid-2">
+            <div class="form-group">
+              <label for="type" class="font-mono">Item Type *</label>
+              <select id="type" name="type" required>
+                <option value="agent">AI Agent</option>
+                <option value="workflow">n8n / Zapier Workflow</option>
+                <option value="ai-os">AI OS Stack</option>
+                <option value="prompt">System Prompt</option>
+                <option value="app">Mini Web App</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="category" class="font-mono">Primary Category *</label>
+              <select id="category" name="category" required>
+                <option value="agents">Agents</option>
+                <option value="workflows">Workflows</option>
+                <option value="frameworks">Frameworks</option>
+                <option value="protocols">Protocols</option>
+                <option value="models">Models</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <div class="form-group">
+              <label for="pricing" class="font-mono">Pricing Model *</label>
+              <select id="pricing" name="pricing" required>
+                <option value="free">Free</option>
+                <option value="freemium">Freemium</option>
+                <option value="paid">Paid</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="price" class="font-mono">Price ($ USD, if paid)</label>
+              <input type="number" id="price" name="price" step="0.01" min="0" placeholder="0.00" />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="description" class="font-mono">Description & Key Features *</label>
+            <textarea id="description" name="description" rows="5" required placeholder="Describe what your tool does, what problem it solves, and how to use it..."></textarea>
+          </div>
+
+          <div class="grid-2">
+            <div class="form-group">
+              <label for="creator_email" class="font-mono">Creator Email *</label>
+              <input type="email" id="creator_email" name="creator_email" required placeholder="your.email@domain.com" />
+            </div>
+
+            <div class="form-group">
+              <label for="original_url" class="font-mono">Repository / Demo URL</label>
+              <input type="url" id="original_url" name="original_url" placeholder="https://github.com/username/repo" />
+            </div>
+          </div>
+
+          <button type="submit" class="submit-btn font-mono">Submit Listing to Marketplace Queue →</button>
+        </form>
+      </div>
+    )}
+  </main>
+</Base>
+
+<style>
+  .publish-container {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: calc(var(--nav-height) + 40px) 24px 80px;
+  }
+
+  .publish-header {
+    text-align: center;
+    margin-bottom: 40px;
+  }
+
+  .eyebrow {
+    font-size: 11px;
+    color: var(--lime);
+    letter-spacing: 0.12em;
+    margin-bottom: 8px;
+    display: block;
+  }
+
+  .publish-header h1 {
+    font-size: clamp(30px, 4vw, 44px);
+    font-family: var(--font-headline);
+    margin-bottom: 12px;
+  }
+
+  .sub {
+    color: var(--muted);
+    font-size: 16px;
+    line-height: 1.6;
+  }
+
+  .form-wrapper {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 36px;
+  }
+
+  .publish-form {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  @media (max-width: 600px) {
+    .grid-2 { grid-template-columns: 1fr; }
+  }
+
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .form-group label {
+    font-size: 11.5px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .form-group input,
+  .form-group select,
+  .form-group textarea {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 10px 14px;
+    border-radius: var(--radius-sm);
+    font-family: var(--font-body);
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .form-group input:focus,
+  .form-group select:focus,
+  .form-group textarea:focus {
+    border-color: var(--indigo-soft);
+  }
+
+  .submit-btn {
+    background: var(--lime);
+    color: var(--bg);
+    border: none;
+    padding: 14px 24px;
+    border-radius: var(--radius-pill);
+    font-weight: 700;
+    font-size: 14px;
+    cursor: pointer;
+    margin-top: 10px;
+    transition: all 0.2s;
+  }
+  .submit-btn:hover {
+    box-shadow: 0 0 24px rgba(198, 255, 61, 0.4);
+    transform: translateY(-1px);
+  }
+
+  .success-banner {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 48px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+  }
+  .success-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: rgba(61, 255, 176, 0.15);
+    color: var(--mint);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    font-weight: bold;
+  }
+  .btn-primary {
+    background: var(--lime);
+    color: var(--bg);
+    padding: 10px 20px;
+    border-radius: var(--radius-pill);
+    text-decoration: none;
+    font-weight: 600;
+  }
+</style>

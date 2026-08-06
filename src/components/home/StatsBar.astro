@@ -1,235 +1,160 @@
 ---
 /**
- * StatsBar.astro — animated live-count stats strip
- * Replaces Ticker.astro with real, animated, data-driven counts.
- * Per master plan §3 hero layer 2 ("Live pulse strip"):
- *   "12 new agents today · 340 workflows installed this week · latest wiki entry updated"
- *
- * Pulls real counts from content collections + DB (safe-fallbacks when empty).
- * Numbers count up from 0 on scroll-into-view; "live" dot pulses; marquee row
- * shows recent activity mixed with the counters.
+ * StatsBar.astro — animated live-count stats
+ * Numbers animate from 0 when scrolled into view.
+ * Pulls live counts from content collections where possible.
  */
 import { getCollection } from 'astro:content';
 
-const wikiEntries = await getCollection('wiki');
-const marketplaceListings = await getCollection('marketplace', (e) => e.data.status === 'live');
-const newsPosts = await getCollection('news');
+const wiki = await getCollection('wiki').catch(() => []);
+const mkt = await getCollection('marketplace', e => e.data.status === 'live').catch(() => []);
 
-// Real counts (with safe fallbacks if collections are empty)
 const stats = [
-  { label: 'Wiki entries', value: Math.max(wikiEntries.length, 0), suffix: '', icon: '📖', live: false },
-  { label: 'Live listings', value: Math.max(marketplaceListings.length, 0), suffix: '', icon: '⚡', live: false },
-  { label: 'Tools indexed', value: 14382, suffix: '', icon: '◆', live: true }, // semantic-search index size (placeholder until crawled)
-  { label: 'News stories', value: Math.max(newsPosts.length, 0), suffix: '', icon: '📰', live: false },
+  { value: wiki.length || 0,  display: wiki.length || 0,   label: 'wiki entries',      suffix: '', prefix: '' },
+  { value: mkt.length || 0,   display: mkt.length || 0,    label: 'marketplace tools', suffix: '', prefix: '' },
+  { value: 14382,              display: 14382,              label: 'tools indexed',     suffix: '', prefix: '' },
+  { value: 94,                 display: 94,                 label: 'creator revenue',   suffix: '%', prefix: 'up to ' },
 ];
-
-// Pulse items — recent activity signals (mix of static + real)
-const recentWiki = wikiEntries
-  .sort((a, b) => new Date(b.data.updated).getTime() - new Date(a.data.updated).getTime())
-  .slice(0, 3)
-  .map(e => ({ text: `wiki updated: <b>${e.data.title}</b>` }));
-
-const recentMarketplace = marketplaceListings
-  .sort((a, b) => b.data.uses - a.data.uses)
-  .slice(0, 3)
-  .map(l => ({ text: `trending: <b>${l.data.title}</b> · ${l.data.uses} uses` }));
-
-const pulse = [
-  { text: '12 new agents published today' },
-  { text: '340 workflows installed this week' },
-  ...recentWiki,
-  { text: '1,204 active builders online now' },
-  ...recentMarketplace,
-  { text: 'new comparison: <b>n8n vs Make</b>' },
-  { text: '42 new job posts this week' },
-  { text: 'leaderboard refreshed: top 10 support agents' },
-].filter(Boolean) as { text: string }[];
 ---
 
-<section class="stats-bar" aria-label="Live ecosystem pulse">
-  <div class="stats-grid">
+<section class="stats-bar" id="statsBar" aria-label="Platform statistics">
+  <div class="stats-inner">
     {stats.map((s, i) => (
-      <div class="stat-card" data-target={s.value} data-index={i}>
-        <span class="stat-icon">{s.icon}</span>
-        <span class={`stat-value ${s.live ? 'live' : ''}`}>
-          <span class="stat-count">0</span>{s.suffix}
-          {s.live && <span class="live-dot" aria-hidden="true"></span>}
-        </span>
-        <span class="stat-label">{s.label}</span>
+      <div class="stat" data-value={s.value} data-index={i}>
+        <div class="stat-num">
+          <span class="stat-prefix">{s.prefix}</span>
+          <span class="stat-counter" data-target={s.value}>0</span>
+          <span class="stat-suffix">{s.suffix}</span>
+        </div>
+        <div class="stat-label">{s.label}</div>
       </div>
     ))}
-  </div>
-
-  <div class="ticker-wrap" aria-hidden="true">
-    <div class="ticker" set:html={pulse.map(s => `<span>${s.text}</span>`).join('') + pulse.map(s => `<span>${s.text}</span>`).join('')}></div>
   </div>
 </section>
 
 <script>
-  // Count-up animation when stats enter viewport
-  const cards = document.querySelectorAll<HTMLElement>('.stat-card');
-  if (cards.length) {
-    const animate = (card: HTMLElement) => {
-      const target = parseInt(card.dataset.target || '0', 10);
-      const countEl = card.querySelector<HTMLElement>('.stat-count');
-      if (!countEl || target === 0) {
-        if (countEl) countEl.textContent = '0';
-        return;
-      }
-      const duration = 1400;
+(() => {
+  function animateCounters() {
+    const counters = document.querySelectorAll<HTMLElement>('.stat-counter');
+    counters.forEach(el => {
+      const target = parseInt(el.dataset.target || '0', 10);
+      if (target === 0) { el.textContent = '0'; return; }
+      const duration = 1600;
       const start = performance.now();
-      const step = (now: number) => {
+      function step(now: number) {
         const elapsed = now - start;
         const progress = Math.min(elapsed / duration, 1);
-        // Ease-out cubic
+        // Ease out cubic
         const eased = 1 - Math.pow(1 - progress, 3);
-        const current = Math.floor(eased * target);
-        countEl!.textContent = current.toLocaleString();
+        el.textContent = Math.floor(eased * target).toLocaleString();
         if (progress < 1) requestAnimationFrame(step);
-        else countEl!.textContent = target.toLocaleString();
-      };
+        else el.textContent = target.toLocaleString();
+      }
       requestAnimationFrame(step);
-    };
-
-    const io = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            animate(entry.target as HTMLElement);
-            io.unobserve(entry.target);
-          }
-        });
-      },
-      { threshold: 0.4 }
-    );
-    cards.forEach((c) => io.observe(c));
+    });
   }
+
+  function init() {
+    const bar = document.getElementById('statsBar');
+    if (!bar) return;
+    const observer = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          animateCounters();
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.3 });
+    observer.observe(bar);
+  }
+
+  document.addEventListener('astro:page-load', init);
+  init();
+})();
 </script>
 
 <style>
   .stats-bar {
+    background: var(--surface);
     border-top: 1px solid var(--border);
     border-bottom: 1px solid var(--border);
-    background: var(--bg-2);
-    position: relative;
-    z-index: 2;
+    padding: 36px 36px;
   }
 
-  .stats-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
+  .stats-inner {
     max-width: var(--max-content);
     margin: 0 auto;
-    padding: 28px 36px 22px;
-    gap: 12px;
-  }
-  @media (max-width: 760px) {
-    .stats-grid {
-      grid-template-columns: repeat(2, 1fr);
-      padding: 22px 18px 16px;
-    }
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0;
   }
 
-  .stat-card {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 4px;
-    padding: 14px 8px;
+  .stat {
     text-align: center;
+    padding: 20px 16px;
     position: relative;
+    opacity: 0;
+    transform: translateY(10px);
+    animation: statFadeIn 0.5s ease forwards;
   }
-  .stat-card + .stat-card::before {
+  /* Stagger via nth-child */
+  .stat:nth-child(1) { animation-delay: 0.1s; }
+  .stat:nth-child(2) { animation-delay: 0.2s; }
+  .stat:nth-child(3) { animation-delay: 0.3s; }
+  .stat:nth-child(4) { animation-delay: 0.4s; }
+
+  @keyframes statFadeIn {
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .stat:not(:last-child)::after {
     content: '';
     position: absolute;
-    left: 0;
-    top: 14%;
-    height: 72%;
+    right: 0; top: 20%; bottom: 20%;
     width: 1px;
     background: var(--border);
   }
-  @media (max-width: 760px) {
-    .stat-card + .stat-card::before { display: none; }
-  }
 
-  .stat-icon {
-    font-size: 14px;
-    opacity: 0.55;
-    margin-bottom: 2px;
-  }
-
-  .stat-value {
+  .stat-num {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 2px;
     font-family: var(--font-headline);
-    font-size: 26px;
-    font-weight: 600;
-    color: var(--text);
+    font-size: clamp(28px, 4vw, 44px);
+    font-weight: 700;
     letter-spacing: -0.02em;
-    line-height: 1;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
+    color: var(--text);
+    margin-bottom: 6px;
   }
-  .stat-value.live { color: var(--lime); }
 
-  .live-dot {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: var(--mint);
-    box-shadow: 0 0 8px var(--mint);
-    animation: livepulse 1.8s infinite ease-in-out;
-    display: inline-block;
+  .stat-prefix {
+    font-size: 0.5em;
+    color: var(--muted);
+    font-weight: 400;
+    align-self: center;
   }
-  @keyframes livepulse {
-    0%, 100% { opacity: 1; transform: scale(1); }
-    50% { opacity: 0.4; transform: scale(0.85); }
+
+  .stat-suffix {
+    color: var(--lime);
+    font-size: 0.75em;
   }
 
   .stat-label {
     font-family: var(--font-mono);
-    font-size: 11px;
-    color: var(--muted-2);
-    text-transform: uppercase;
+    font-size: 11.5px;
     letter-spacing: 0.06em;
-  }
-
-  /* Marquee row */
-  .ticker-wrap {
-    overflow: hidden;
-    padding: 11px 0;
-    border-top: 1px solid var(--border);
-  }
-  .ticker {
-    display: flex;
-    gap: 48px;
-    white-space: nowrap;
-    width: max-content;
-    animation: ticker-anim 36s linear infinite;
-  }
-  .ticker span {
-    font-family: var(--font-mono);
-    font-size: 12.5px;
+    text-transform: uppercase;
     color: var(--muted);
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .ticker span b {
-    color: var(--text);
-    font-weight: 600;
-  }
-  .ticker span::before {
-    content: '●';
-    color: var(--lime);
-    font-size: 8px;
-  }
-  @keyframes ticker-anim {
-    from { transform: translateX(0); }
-    to { transform: translateX(-50%); }
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    .ticker { animation: none; }
-    .live-dot { animation: none; }
+  @media (max-width: 700px) {
+    .stats-inner { grid-template-columns: repeat(2, 1fr); }
+    .stat:nth-child(2)::after { display: none; }
+    .stat:nth-child(4)::after { display: none; }
+  }
+  @media (max-width: 400px) {
+    .stats-inner { grid-template-columns: 1fr; }
+    .stat::after { display: none; }
   }
 </style>

@@ -43,11 +43,13 @@ export async function adaChat(
   messages: ChatMessage[],
   opts: ChatOptions = {},
 ): Promise<ChatResult> {
-  const apiKey = env('MINIMAX_API_KEY');
-  const baseUrl: string = env('MINIMAX_BASE_URL') ?? 'https://api.minimax.io/v1';
-  const model: string = opts.model ?? env('MINIMAX_MODEL') ?? 'MiniMax-M3';
+  const apiKey = env('MINIMAX_API_KEY') ?? env('LLM_API_KEY');
+  const baseUrl: string = env('MINIMAX_BASE_URL') ?? env('LLM_API_URL') ?? 'https://api.minimax.io/v1';
+  const rawModel: string = opts.model ?? env('MINIMAX_MODEL') ?? env('LLM_MODEL') ?? 'MiniMax-M3';
+  const model = rawModel.replace(/^minimax\//i, '');
+
   if (!apiKey) {
-    throw new Error('MINIMAX_API_KEY is not set — configure it via hPanel env or .env');
+    throw new Error('LLM API key missing — please set MINIMAX_API_KEY or LLM_API_KEY in Hostinger Environment Variables.');
   }
 
   const url = `${baseUrl.replace(/\/$/, '')}/chat/completions`;

@@ -1,47 +1,84 @@
 ---
 /**
- * MarketplaceRow.astro — horizontally scrolling cards (Drive HTML `<div class="row">`)
- * Shows recent marketplace items. Pulled from `getCollection('marketplace')`,
- * filtered to `status: 'live'`, sorted by uses desc, top 6.
+ * MarketplaceRow.astro v2
+ * - Tab filter by type (client-side, no reload)
+ * - Better card design
+ * - "Try Now" link on each card
  */
 import { getCollection, type CollectionEntry } from 'astro:content';
 
 type Listing = CollectionEntry<'marketplace'>;
 
-const all = await getCollection('marketplace', (e: Listing) => e.data.status === 'live');
-const top: Listing[] = all
-  .sort((a: Listing, b: Listing) => b.data.uses - a.data.uses)
-  .slice(0, 6);
+const all = await getCollection('marketplace', (e: Listing) => e.data.status === 'live').catch(() => [] as Listing[]);
+const top = all.sort((a, b) => b.data.uses - a.data.uses).slice(0, 9);
+
+const tabs = ['all', 'agent', 'workflow', 'ai-os', 'app'] as const;
+const tabLabels: Record<string, string> = {
+  all: 'All',
+  agent: 'Agents',
+  workflow: 'Workflows',
+  'ai-os': 'AI OS',
+  app: 'Apps',
+};
 
 function formatUses(n: number) {
-  if (n >= 1000) return `${(n / 1000).toFixed(1)}k uses`;
-  return `${n} uses`;
+  if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
+  return `${n}`;
 }
 ---
 
-<section id="marketplace">
+<section class="mkt-section" id="marketplace">
   <header class="section-head">
-    <h2>Trending in the marketplace</h2>
-    <a class="see-all" href="/marketplace">View all listings →</a>
+    <div>
+      <h2>Trending in the marketplace</h2>
+      <p class="section-sub">Install in one click. Try it free first.</p>
+    </div>
+    <a class="see-all" href="/marketplace">View all {all.length} listings →</a>
   </header>
 
+  <!-- Type filter tabs -->
+  <div class="mkt-tabs" role="tablist" aria-label="Filter by type">
+    {tabs.map(t => (
+      <button
+        class={`mkt-tab ${t === 'all' ? 'active' : ''}`}
+        data-filter={t}
+        role="tab"
+        aria-selected={t === 'all' ? 'true' : 'false'}
+      >
+        {tabLabels[t]}
+      </button>
+    ))}
+  </div>
+
+  <!-- Cards container -->
   {top.length === 0 ? (
-    <div class="empty">
+    <div class="mkt-empty">
       <p>Marketplace launching soon. <a href="/marketplace/publish">Submit the first listing →</a></p>
     </div>
   ) : (
-    <div class="row">
+    <div class="mkt-row" id="mktCards">
       {top.map(item => (
-        <article class="card">
+        <article
+          class="mkt-card"
+          data-type={item.data.type}
+          aria-label={item.data.title}
+        >
           <div class="card-top">
-            <div class="card-icon">{item.data.icon ?? '⚡'}</div>
-            <span class={`badge ${item.data.pricing}`}>{item.data.pricing.toUpperCase()}</span>
+            <div class="card-icon" aria-hidden="true">{item.data.icon ?? '⚡'}</div>
+            <span class={`badge badge-${item.data.pricing}`}>{item.data.pricing.toUpperCase()}</span>
           </div>
           <h4>{item.data.title}</h4>
-          <p>{item.data.summary ?? ''}</p>
-          <div class="card-meta">
-            <span class="star">★ {item.data.rating.toFixed(1)}</span>
-            <span>{formatUses(item.data.uses)}</span>
+          <p class="card-desc">{item.data.summary ?? ''}</p>
+          <div class="card-footer">
+            <div class="card-meta">
+              <span class="star" aria-label={`Rating: ${item.data.rating.toFixed(1)} out of 5`}>
+                ★ {item.data.rating.toFixed(1)}
+              </span>
+              <span class="uses">{formatUses(item.data.uses)} uses</span>
+            </div>
+            <a class="try-btn" href={`/marketplace/${item.slug}`} aria-label={`Try ${item.data.title}`}>
+              Try →
+            </a>
           </div>
         </article>
       ))}
@@ -49,116 +86,189 @@ function formatUses(n: number) {
   )}
 </section>
 
+<script>
+(() => {
+  function init() {
+    const tabs = document.querySelectorAll<HTMLButtonElement>('.mkt-tab');
+    const cards = document.querySelectorAll<HTMLElement>('.mkt-card');
+    if (!tabs.length || !cards.length) return;
+
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        // Update tab state
+        tabs.forEach(t => { t.classList.remove('active'); t.setAttribute('aria-selected', 'false'); });
+        tab.classList.add('active');
+        tab.setAttribute('aria-selected', 'true');
+
+        const filter = tab.dataset.filter || 'all';
+
+        // Filter cards
+        cards.forEach(card => {
+          const type = card.dataset.type || '';
+          const show = filter === 'all' || type === filter;
+          card.style.display = show ? 'flex' : 'none';
+          // Trigger re-fade animation
+          if (show) {
+            card.style.opacity = '0';
+            card.style.transform = 'translateY(8px)';
+            requestAnimationFrame(() => {
+              card.style.transition = 'opacity 0.25s ease, transform 0.25s ease';
+              card.style.opacity = '1';
+              card.style.transform = 'translateY(0)';
+            });
+          }
+        });
+      });
+    });
+  }
+  document.addEventListener('astro:page-load', init);
+  init();
+})();
+</script>
+
 <style>
-  section {
-    padding: 100px 36px;
+  .mkt-section {
+    padding: 80px 36px;
     max-width: var(--max-content);
     margin: 0 auto;
-    position: relative;
   }
+
   .section-head {
     display: flex;
     align-items: flex-end;
     justify-content: space-between;
-    margin-bottom: 44px;
+    margin-bottom: 28px;
     flex-wrap: wrap;
     gap: 16px;
   }
-  .section-head h2 {
-    font-size: clamp(26px, 3vw, 36px);
-  }
+  .section-head h2 { font-size: clamp(24px, 3vw, 34px); }
+  .section-sub { color: var(--muted); font-size: 14px; margin-top: 4px; }
   .see-all {
     font-family: var(--font-mono);
     font-size: 13px;
-    color: var(--cyan);
+    color: var(--lime);
+    white-space: nowrap;
+    text-decoration: none;
+    transition: opacity 0.15s;
+  }
+  .see-all:hover { opacity: 0.75; }
+
+  /* Tabs */
+  .mkt-tabs {
     display: flex;
-    align-items: center;
-    gap: 6px;
+    gap: 8px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+  }
+  .mkt-tab {
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    padding: 7px 16px;
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .mkt-tab:hover { color: var(--text); border-color: var(--indigo-soft); }
+  .mkt-tab.active {
+    background: var(--indigo);
+    color: #fff;
+    border-color: var(--indigo);
+  }
+  .mkt-tab:focus-visible { outline: 2px solid var(--lime); outline-offset: 2px; }
+
+  /* Cards row */
+  .mkt-row {
+    display: flex;
+    gap: 16px;
+    overflow-x: auto;
+    padding-bottom: 12px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+  .mkt-row::-webkit-scrollbar { height: 5px; }
+  .mkt-row::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  .mkt-card {
+    flex: 0 0 260px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+  }
+  .mkt-card:hover {
+    border-color: var(--indigo-soft);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 28px rgba(0,0,0,0.25);
   }
 
-  .empty {
+  .card-top { display: flex; align-items: center; justify-content: space-between; }
+  .card-icon {
+    width: 36px; height: 36px;
+    border-radius: 10px;
+    background: var(--surface-2);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 17px;
+  }
+
+  .badge {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: var(--radius-pill);
+    letter-spacing: 0.05em;
+  }
+  .badge-free { background: rgba(61,255,176,0.12); color: var(--mint); }
+  .badge-paid { background: rgba(255,177,61,0.12); color: var(--amber); }
+  .badge-freemium { background: rgba(91,76,255,0.16); color: var(--indigo-soft); }
+
+  .mkt-card h4 { font-size: 15.5px; color: var(--text); line-height: 1.3; }
+  .card-desc { color: var(--muted); font-size: 13px; line-height: 1.5; flex: 1; }
+
+  .card-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: auto;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+  }
+  .card-meta {
+    display: flex;
+    gap: 10px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--muted-2);
+  }
+  .star { color: var(--lime); }
+
+  .try-btn {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--bg);
+    background: var(--lime);
+    padding: 5px 12px;
+    border-radius: var(--radius-pill);
+    text-decoration: none;
+    font-weight: 600;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .try-btn:hover { box-shadow: 0 0 14px rgba(198,255,61,0.5); }
+
+  .mkt-empty {
     text-align: center;
-    padding: 40px;
+    padding: 48px;
     color: var(--muted);
     background: var(--surface);
     border: 1px dashed var(--border);
     border-radius: var(--radius);
   }
-  .empty a {
-    color: var(--lime);
-    text-decoration: underline;
-  }
-
-  .row {
-    display: flex;
-    gap: 18px;
-    overflow-x: auto;
-    padding-bottom: 10px;
-    scrollbar-width: thin;
-  }
-  .row::-webkit-scrollbar { height: 6px; }
-  .row::-webkit-scrollbar-thumb {
-    background: var(--border);
-    border-radius: 3px;
-  }
-
-  .card {
-    flex: 0 0 270px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 22px;
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-    transition: all 0.2s ease;
-  }
-  .card:hover {
-    border-color: var(--indigo-soft);
-    transform: translateY(-3px);
-  }
-  .card-top {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-  .card-icon {
-    width: 34px;
-    height: 34px;
-    border-radius: 9px;
-    background: var(--surface-2);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 16px;
-  }
-  .badge {
-    font-family: var(--font-mono);
-    font-size: 10.5px;
-    padding: 4px 9px;
-    border-radius: var(--radius-pill);
-    letter-spacing: 0.05em;
-  }
-  .badge.free { background: rgba(61, 255, 176, 0.12); color: var(--mint); }
-  .badge.paid { background: rgba(255, 177, 61, 0.12); color: var(--amber); }
-  .badge.freemium { background: rgba(91, 76, 255, 0.16); color: var(--indigo-soft); }
-
-  .card h4 {
-    font-size: 16px;
-  }
-  .card p {
-    color: var(--muted);
-    font-size: 13px;
-    line-height: 1.5;
-  }
-  .card-meta {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-family: var(--font-mono);
-    font-size: 11.5px;
-    color: var(--muted-2);
-    margin-top: auto;
-  }
-  .star { color: var(--lime); }
+  .mkt-empty a { color: var(--lime); }
 </style>

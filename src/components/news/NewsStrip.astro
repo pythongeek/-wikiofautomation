@@ -1,44 +1,68 @@
 ---
 /**
- * NewsStrip.astro — recent news on homepage
+ * NewsStrip.astro v2 — 2-column visual news grid.
  */
 import { getCollection, type CollectionEntry } from 'astro:content';
 
 type News = CollectionEntry<'news'>;
 
-const all = await getCollection('news');
-const top: News[] = all
-  .sort((a: News, b: News) => new Date(b.data.published).getTime() - new Date(a.data.published).getTime())
+const all = await getCollection('news').catch(() => [] as News[]);
+const top = all
+  .sort((a, b) => new Date(b.data.published).getTime() - new Date(a.data.published).getTime())
   .slice(0, 4);
 
-function relativeTime(iso: string) {
-  const then = new Date(iso).getTime();
-  const now = Date.now();
-  const mins = Math.round((now - then) / 60000);
-  if (mins < 60) return `${Math.max(1, mins)}h ago`;
-  const hours = Math.round(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.round(hours / 24)}d ago`;
+const kindColors: Record<string, string> = {
+  launch: 'var(--lime)',
+  'deep-dive': 'var(--cyan)',
+  benchmark: 'var(--amber)',
+  digest: 'var(--indigo-soft)',
+  industry: 'var(--mint)',
+};
+
+const kindIcons: Record<string, string> = {
+  launch: '🚀', 'deep-dive': '🔬', benchmark: '📊', digest: '📰', industry: '🌐',
+};
+
+function relTime(iso: string) {
+  const mins = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+  if (mins < 60) return `${Math.max(1, mins)}m ago`;
+  const h = Math.round(mins / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.round(h / 24)}d ago`;
 }
 ---
 
-<section id="news">
+<section class="news-section" id="news">
   <header class="section-head">
-    <h2>Today in automation</h2>
+    <div>
+      <h2>Today in automation</h2>
+      <p class="section-sub">Launches, deep dives, and benchmarks — updated daily.</p>
+    </div>
     <a class="see-all" href="/news">All news →</a>
   </header>
 
   {top.length === 0 ? (
-    <div class="empty">
+    <div class="news-empty">
       <p>Newsroom launching soon — daily automation launches, deep dives, and benchmarks.</p>
     </div>
   ) : (
-    <div class="news-list">
-      {top.map(post => (
-        <a class="news-item" href={`/news/${post.slug}`}>
-          <span class="tag">{post.data.kind.toUpperCase()}</span>
-          <span class="headline">{post.data.title}</span>
-          <span class="time">{relativeTime(post.data.published)}</span>
+    <div class="news-grid">
+      {top.map((post, i) => (
+        <a
+          class={`news-card ${i === 0 ? 'news-card--featured' : ''}`}
+          href={`/news/${post.slug}`}
+          style={`--kind-color: ${kindColors[post.data.kind] ?? 'var(--muted)'}`}
+        >
+          <div class="nc-top">
+            <span class="nc-badge">
+              <span class="nc-icon">{kindIcons[post.data.kind] ?? '📝'}</span>
+              {post.data.kind.toUpperCase()}
+            </span>
+            <span class="nc-time">{relTime(post.data.published)}</span>
+          </div>
+          <h3>{post.data.title}</h3>
+          {post.data.excerpt && <p class="nc-excerpt">{post.data.excerpt}</p>}
+          <span class="nc-read">Read →</span>
         </a>
       ))}
     </div>
@@ -46,71 +70,119 @@ function relativeTime(iso: string) {
 </section>
 
 <style>
-  section {
-    padding: 100px 36px;
+  .news-section {
+    padding: 80px 36px;
     max-width: var(--max-content);
     margin: 0 auto;
-    position: relative;
   }
+
   .section-head {
     display: flex;
     align-items: flex-end;
     justify-content: space-between;
-    margin-bottom: 44px;
+    margin-bottom: 28px;
     flex-wrap: wrap;
     gap: 16px;
   }
-  .section-head h2 {
-    font-size: clamp(26px, 3vw, 36px);
-  }
+  .section-head h2 { font-size: clamp(24px, 3vw, 34px); }
+  .section-sub { color: var(--muted); font-size: 14px; margin-top: 4px; }
   .see-all {
     font-family: var(--font-mono);
     font-size: 13px;
-    color: var(--cyan);
+    color: var(--indigo-soft);
+    text-decoration: none;
+    white-space: nowrap;
+    transition: opacity 0.15s;
+  }
+  .see-all:hover { opacity: 0.7; }
+
+  /* Grid */
+  .news-grid {
+    display: grid;
+    grid-template-columns: 1.5fr 1fr;
+    grid-template-rows: auto auto;
+    gap: 16px;
+  }
+
+  .news-card {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--kind-color, var(--border));
+    border-radius: var(--radius);
+    padding: 22px;
+    text-decoration: none;
+    color: inherit;
+    transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+  }
+  .news-card:hover {
+    border-color: var(--kind-color, var(--indigo-soft));
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+  }
+  .news-card:focus-visible { outline: 2px solid var(--lime); outline-offset: 2px; }
+
+  /* Featured card spans left column both rows */
+  .news-card--featured {
+    grid-row: 1 / 3;
+  }
+  .news-card--featured h3 { font-size: 20px; }
+
+  .nc-top {
     display: flex;
     align-items: center;
-    gap: 6px;
+    justify-content: space-between;
+    gap: 10px;
   }
-  .empty {
+
+  .nc-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    color: var(--kind-color, var(--muted));
+    background: color-mix(in srgb, var(--kind-color, #888) 12%, transparent);
+    padding: 3px 8px;
+    border-radius: var(--radius-pill);
+  }
+  .nc-icon { font-size: 11px; }
+
+  .nc-time {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--muted-2);
+    flex-shrink: 0;
+  }
+
+  .news-card h3 { font-size: 15.5px; font-weight: 600; line-height: 1.3; color: var(--text); }
+  .nc-excerpt { font-size: 13.5px; color: var(--muted); line-height: 1.55; flex: 1; }
+
+  .nc-read {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--kind-color, var(--cyan));
+    opacity: 0;
+    transform: translateX(-4px);
+    transition: all 0.2s;
+    margin-top: auto;
+  }
+  .news-card:hover .nc-read { opacity: 1; transform: translateX(0); }
+
+  .news-empty {
     text-align: center;
-    padding: 40px;
+    padding: 48px;
     color: var(--muted);
     background: var(--surface);
     border: 1px dashed var(--border);
     border-radius: var(--radius);
   }
 
-  .news-list {
-    display: flex;
-    flex-direction: column;
-    border-top: 1px solid var(--border);
-  }
-  .news-item {
-    display: flex;
-    align-items: center;
-    gap: 24px;
-    padding: 20px 4px;
-    border-bottom: 1px solid var(--border);
-    transition: all 0.2s ease;
-    color: inherit;
-  }
-  .news-item:hover { background: var(--surface); }
-  .tag {
-    font-family: var(--font-mono);
-    font-size: 11px;
-    color: var(--indigo-soft);
-    width: 110px;
-    flex-shrink: 0;
-  }
-  .headline { flex: 1; font-size: 15.5px; }
-  .time {
-    font-family: var(--font-mono);
-    font-size: 12px;
-    color: var(--muted-2);
-    flex-shrink: 0;
-  }
-
-  @media (max-width: 700px) {
-    .tag { display: none; }
+  @media (max-width: 780px) {
+    .news-grid { grid-template-columns: 1fr; }
+    .news-card--featured { grid-row: auto; }
   }
 </style>

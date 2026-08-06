@@ -1,72 +1,262 @@
 ---
 /**
- * CreatorCTA.astro — "publish your agent" callout
+ * CreatorCTA.astro v2 — creator monetization band with feature list.
  */
+const features = [
+  'Keep up to 90% of every sale',
+  'Publish from web, CLI, or API',
+  'Analytics dashboard from day one',
+  'Listing mirrored across wiki entries',
+  'Free tier lets users try before paying',
+];
 ---
 
-<section>
-  <div class="cta-band">
-    <div class="eyebrow cta-eyebrow">FOR CREATORS</div>
-    <h2>Publish your agent. Keep up to 90% of the revenue.</h2>
-    <p>Ship a workflow, an agent, or a tiny app in minutes — from the dashboard or straight from your CLI.</p>
-    <a class="btn btn-primary" href="/marketplace/publish">Start publishing →</a>
+<section class="creator-section">
+  <div class="creator-band">
+    <!-- Left: copy -->
+    <div class="creator-copy">
+      <div class="creator-eyebrow">FOR CREATORS</div>
+      <h2>Publish once.<br>Earn while you sleep.</h2>
+      <p>Ship a workflow, agent, or mini app in minutes. Wiki of Automation handles discovery, payments, and hosting — you keep the majority of the revenue.</p>
+      <ul class="feature-list" aria-label="Creator features">
+        {features.map(f => (
+          <li>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <circle cx="8" cy="8" r="7" stroke="var(--lime)" stroke-width="1.2"/>
+              <path d="M5 8l2.5 2.5L11 5.5" stroke="var(--lime)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            {f}
+          </li>
+        ))}
+      </ul>
+      <div class="creator-ctas">
+        <a class="cta-primary" href="/marketplace/publish">Start publishing →</a>
+        <a class="cta-secondary" href="/docs/creator">See how it works</a>
+      </div>
+    </div>
+
+    <!-- Right: stat card -->
+    <div class="creator-stat-card" aria-label="Revenue share statistics">
+      <div class="rev-ring" aria-hidden="true">
+        <svg viewBox="0 0 100 100" width="180" height="180">
+          <circle cx="50" cy="50" r="42" fill="none" stroke="var(--border)" stroke-width="8"/>
+          <circle
+            cx="50" cy="50" r="42"
+            fill="none"
+            stroke="var(--lime)"
+            stroke-width="8"
+            stroke-dasharray="263.9"
+            stroke-dashoffset="26.4"
+            stroke-linecap="round"
+            transform="rotate(-90 50 50)"
+          />
+        </svg>
+        <div class="rev-label">
+          <span class="rev-pct">90%</span>
+          <span class="rev-sub">to creator</span>
+        </div>
+      </div>
+      <p class="rev-desc">Industry-leading revenue share. No hidden fees. Withdraw anytime.</p>
+      <div class="rev-stats">
+        <div>
+          <strong>$0</strong>
+          <span>to get started</span>
+        </div>
+        <div>
+          <strong>1 min</strong>
+          <span>to publish</span>
+        </div>
+      </div>
+    </div>
   </div>
 </section>
 
 <style>
-  section {
-    padding: 100px 36px;
+  .creator-section {
+    padding: 80px 36px 100px;
     max-width: var(--max-content);
     margin: 0 auto;
-    position: relative;
   }
 
-  .cta-band {
-    background: linear-gradient(120deg, rgba(91, 76, 255, 0.16), rgba(61, 224, 255, 0.08));
+  .creator-band {
+    background: linear-gradient(135deg,
+      rgba(91,76,255,0.1) 0%,
+      rgba(61,224,255,0.05) 50%,
+      rgba(198,255,61,0.06) 100%
+    );
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
-    padding: 64px 48px;
-    text-align: center;
+    padding: 60px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 60px;
+    align-items: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Subtle radial glow */
+  .creator-band::before {
+    content: '';
+    position: absolute;
+    width: 400px; height: 400px;
+    background: radial-gradient(circle, rgba(91,76,255,0.15), transparent 70%);
+    top: -100px; right: -100px;
+    pointer-events: none;
+  }
+
+  .creator-eyebrow {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    color: var(--lime);
+    margin-bottom: 16px;
+  }
+
+  .creator-copy h2 {
+    font-size: clamp(26px, 3.2vw, 38px);
+    line-height: 1.15;
+    margin-bottom: 14px;
+  }
+
+  .creator-copy p {
+    color: var(--muted);
+    font-size: 15px;
+    line-height: 1.6;
+    max-width: 480px;
+    margin-bottom: 24px;
+  }
+
+  .feature-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 32px;
+  }
+  .feature-list li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 14.5px;
+    color: var(--text);
+  }
+  .feature-list svg { flex-shrink: 0; }
+
+  .creator-ctas {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .cta-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--lime);
+    color: var(--bg);
+    font-weight: 600;
+    font-size: 14px;
+    padding: 12px 24px;
+    border-radius: var(--radius-pill);
+    text-decoration: none;
+    transition: all 0.2s;
+  }
+  .cta-primary:hover { box-shadow: 0 0 28px rgba(198,255,61,0.5); transform: translateY(-1px); }
+  .cta-primary:focus-visible { outline: 2px solid var(--text); outline-offset: 3px; }
+
+  .cta-secondary {
+    font-size: 14px;
+    color: var(--muted);
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+  .cta-secondary:hover { color: var(--text); }
+
+  /* Revenue ring card */
+  .creator-stat-card {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 18px;
-  }
-  .cta-eyebrow {
-    color: var(--lime);
-  }
-  .cta-band h2 {
-    font-size: clamp(24px, 3.4vw, 36px);
-    max-width: 640px;
-  }
-  .cta-band p {
-    color: var(--muted);
-    max-width: 480px;
+    gap: 20px;
+    min-width: 200px;
+    position: relative;
+    z-index: 1;
   }
 
-  .btn {
-    font-family: var(--font-body);
-    font-size: 14px;
-    font-weight: 600;
-    padding: 12px 22px;
-    border-radius: var(--radius-pill);
-    border: 1px solid var(--border);
-    background: var(--surface);
-    color: var(--text);
-    cursor: pointer;
-    transition: all 0.2s ease;
-    text-decoration: none;
-    display: inline-flex;
+  .rev-ring {
+    position: relative;
+    width: 180px; height: 180px;
+  }
+  .rev-ring svg { display: block; }
+
+  .rev-label {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
     align-items: center;
-    margin-top: 6px;
+    justify-content: center;
+    gap: 3px;
   }
-  .btn-primary {
-    background: var(--lime);
-    color: var(--bg);
-    border: none;
+  .rev-pct {
+    font-family: var(--font-headline);
+    font-size: 42px;
+    font-weight: 700;
+    color: var(--lime);
+    line-height: 1;
   }
-  .btn-primary:hover {
-    box-shadow: 0 0 24px rgba(198, 255, 61, 0.45);
-    transform: translateY(-1px);
+  .rev-sub {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.06em;
+  }
+
+  .rev-desc {
+    font-size: 13px;
+    color: var(--muted);
+    text-align: center;
+    max-width: 200px;
+    line-height: 1.5;
+  }
+
+  .rev-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    width: 100%;
+  }
+  .rev-stats > div {
+    text-align: center;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 12px 8px;
+  }
+  .rev-stats strong {
+    display: block;
+    font-size: 20px;
+    color: var(--text);
+    font-family: var(--font-headline);
+  }
+  .rev-stats span {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.06em;
+  }
+
+  @media (max-width: 900px) {
+    .creator-band {
+      grid-template-columns: 1fr;
+      padding: 40px 32px;
+      gap: 40px;
+    }
+    .creator-stat-card { align-self: center; margin: 0 auto; }
+  }
+  @media (max-width: 560px) {
+    .creator-band { padding: 32px 24px; }
   }
 </style>

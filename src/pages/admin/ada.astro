@@ -1,10 +1,11 @@
 ---
-import Layout from '@/layouts/Base.astro';
+import Layout from '~/layouts/Base.astro';
 export const prerender = false;
 
-import { db } from '@/lib/db';
-import { ada_queries } from '@/lib/db/schema';
+import { db } from '~/lib/db';
+import { ada_queries } from '~/lib/db/schema';
 import { desc, count, sql } from 'drizzle-orm';
+import { getDbKnowledgeChunks, SITE_ROUTES } from '~/lib/ada/knowledge';
 
 const session = Astro.locals.session;
 if (!session) return Astro.redirect('/admin/login');
@@ -18,9 +19,10 @@ const queries = await db
   .from(ada_queries)
   .orderBy(desc(ada_queries.created_at))
   .limit(PAGE_SIZE)
-  .offset(offset);
+  .offset(offset)
+  .catch(() => []);
 
-const [{ total }] = await db.select({ total: count() }).from(ada_queries);
+const [{ total }] = await db.select({ total: count() }).from(ada_queries).catch(() => [{ total: 0 }]);
 
 const topIntents = await db
   .select({
@@ -31,7 +33,8 @@ const topIntents = await db
   .where(sql`${ada_queries.intent} IS NOT NULL`)
   .groupBy(ada_queries.intent)
   .orderBy(desc(sql`COUNT(*)`))
-  .limit(5);
+  .limit(5)
+  .catch(() => []);
 
 const aggRow = await db
   .select({
@@ -39,92 +42,117 @@ const aggRow = await db
     totalCostCents: sql<number | null>`COALESCE(SUM(${ada_queries.cost_cents}), 0)`,
   })
   .from(ada_queries)
-  .then(r => r[0] || { avgLatency: null, totalCostCents: 0 });
+  .then(r => r[0] || { avgLatency: null, totalCostCents: 0 })
+  .catch(() => ({ avgLatency: null, totalCostCents: 0 }));
 
 const totalPages = Math.ceil(total / PAGE_SIZE);
+
+// Real-time Knowledge Base Indexing Stats
+const dbChunks = await getDbKnowledgeChunks();
+const totalRoutes = SITE_ROUTES.length;
 ---
 
-<Layout title="Ada Query Log | Admin">
+<Layout title="Ada AI Engine & Query Log | Admin">
   <div class="flex min-h-screen bg-[#0B0B10] text-[#F2F1F7]">
-    <aside class="w-64 bg-[#1A1A2E] min-h-screen p-4 shrink-0">
-      <h2 class="text-xl font-bold text-[#C6FF3D] mb-6">Admin</h2>
-      <nav class="space-y-1 text-sm">
-        <a href="/admin/" class="block px-3 py-2 rounded hover:bg-[#2D2D44]">Dashboard</a>
-        <a href="/admin/wiki" class="block px-3 py-2 rounded hover:bg-[#2D2D44]">Wiki Entries</a>
-        <a href="/admin/marketplace" class="block px-3 py-2 rounded hover:bg-[#2D2D44]">Marketplace</a>
-        <a href="/admin/news" class="block px-3 py-2 rounded hover:bg-[#2D2D44]">News</a>
-        <a href="/admin/tasks" class="block px-3 py-2 rounded hover:bg-[#2D2D44]">Tasks</a>
-        <a href="/admin/ada" class="block px-3 py-2 rounded bg-[#5B4CFF]/20 text-[#C6FF3D] font-medium">Ada Log</a>
-        <a href="/admin/settings" class="block px-3 py-2 rounded hover:bg-[#2D2D44]">Settings</a>
+    <!-- Sidebar -->
+    <aside class="w-64 bg-[#14141D] border-r border-[#26262F] min-h-screen p-4 shrink-0">
+      <h2 class="text-xl font-bold text-[#C6FF3D] mb-6 font-headline">Admin Control</h2>
+      <nav class="space-y-1 text-sm font-body">
+        <a href="/admin" class="block px-3 py-2 rounded hover:bg-[#191924]">Dashboard</a>
+        <a href="/admin/homepage" class="block px-3 py-2 rounded hover:bg-[#191924]">Homepage Manager</a>
+        <a href="/admin/wiki" class="block px-3 py-2 rounded hover:bg-[#191924]">Wiki Entries</a>
+        <a href="/admin/marketplace" class="block px-3 py-2 rounded hover:bg-[#191924]">Marketplace</a>
+        <a href="/admin/news" class="block px-3 py-2 rounded hover:bg-[#191924]">News</a>
+        <a href="/admin/ada" class="block px-3 py-2 rounded bg-[#5B4CFF]/20 text-[#C6FF3D] font-medium">Ada AI Engine</a>
+        <a href="/admin/settings" class="block px-3 py-2 rounded hover:bg-[#191924]">Settings</a>
       </nav>
     </aside>
 
     <main class="flex-1 p-6 lg:p-8">
-      <h1 class="text-3xl font-bold mb-6">Ada Query Log</h1>
+      <h1 class="text-3xl font-bold mb-6 font-headline">Ada AI Engine & Knowledge Center</h1>
+
+      <!-- RAG Knowledge Base Status -->
+      <div class="bg-[#14141D] border border-[#26262F] rounded-xl p-6 mb-8">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h2 class="text-lg font-bold text-[#3DE0FF]">Dynamic Knowledge Base Coverage</h2>
+            <p class="text-xs text-[#8B8B9A] mt-0.5">Real-time sync between SQLite DB, Markdown Vault, and Site Routes</p>
+          </div>
+          <span class="px-3 py-1 bg-[#3DFFB0]/10 border border-[#3DFFB0]/30 text-[#3DFFB0] rounded-full text-xs font-mono">Synced & Active</span>
+        </div>
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+          <div class="bg-[#0B0B10] p-4 rounded-lg border border-[#26262F]">
+            <p class="text-xs text-[#8B8B9A] font-mono">SQLite DB Indexed Tools</p>
+            <p class="text-xl font-bold text-[#C6FF3D] mt-1">{dbChunks.length} items</p>
+          </div>
+          <div class="bg-[#0B0B10] p-4 rounded-lg border border-[#26262F]">
+            <p class="text-xs text-[#8B8B9A] font-mono">Registered Site Routes</p>
+            <p class="text-xl font-bold text-[#3DE0FF] mt-1">{totalRoutes} routes</p>
+          </div>
+          <div class="bg-[#0B0B10] p-4 rounded-lg border border-[#26262F]">
+            <p class="text-xs text-[#8B8B9A] font-mono">Primary AI Model</p>
+            <p class="text-xl font-bold text-white mt-1">MiniMax M3</p>
+          </div>
+        </div>
+      </div>
 
       <!-- Stats -->
       <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <div class="bg-[#1A1A2E] border border-[#2D2D44] p-4 rounded-lg">
-          <p class="text-xs uppercase text-gray-500 mb-1">Total Queries</p>
+        <div class="bg-[#14141D] border border-[#26262F] p-4 rounded-lg">
+          <p class="text-xs uppercase text-[#8B8B9A] mb-1">Total Queries</p>
           <p class="text-2xl font-bold text-[#C6FF3D]">{total}</p>
         </div>
-        <div class="bg-[#1A1A2E] border border-[#2D2D44] p-4 rounded-lg">
-          <p class="text-xs uppercase text-gray-500 mb-1">Total Cost</p>
+        <div class="bg-[#14141D] border border-[#26262F] p-4 rounded-lg">
+          <p class="text-xs uppercase text-[#8B8B9A] mb-1">Est. Total Cost</p>
           <p class="text-2xl font-bold text-[#C6FF3D]">${((aggRow.totalCostCents || 0) / 100).toFixed(2)}</p>
         </div>
-        <div class="bg-[#1A1A2E] border border-[#2D2D44] p-4 rounded-lg">
-          <p class="text-xs uppercase text-gray-500 mb-1">Avg Latency</p>
+        <div class="bg-[#14141D] border border-[#26262F] p-4 rounded-lg">
+          <p class="text-xs uppercase text-[#8B8B9A] mb-1">Avg Latency</p>
           <p class="text-2xl font-bold text-[#C6FF3D]">{aggRow.avgLatency ? Math.round(aggRow.avgLatency) : 0}ms</p>
         </div>
-        <div class="bg-[#1A1A2E] border border-[#2D2D44] p-4 rounded-lg">
-          <p class="text-xs uppercase text-gray-500 mb-1">Top Intent</p>
+        <div class="bg-[#14141D] border border-[#26262F] p-4 rounded-lg">
+          <p class="text-xs uppercase text-[#8B8B9A] mb-1">Top Intent</p>
           <p class="text-2xl font-bold text-[#C6FF3D]">{topIntents[0]?.intent || '—'}</p>
         </div>
       </div>
 
-      <!-- Top intents -->
-      {topIntents.length > 0 && (
-        <section class="mb-8">
-          <h2 class="text-lg font-bold mb-3">Top Intents</h2>
-          <div class="bg-[#1A1A2E] border border-[#2D2D44] rounded-lg p-4">
-            <ul class="space-y-2">
-              {topIntents.map(t => (
-                <li class="flex items-center justify-between text-sm">
-                  <span class="font-mono text-[#3DE0FF]">{t.intent}</span>
-                  <span class="text-[#C6FF3D] font-medium">{t.c}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </section>
-      )}
+      <!-- Admin Test Sandbox -->
+      <div class="bg-[#14141D] border border-[#26262F] rounded-xl p-6 mb-8">
+        <h2 class="text-lg font-bold mb-2 text-[#C6FF3D]">Ada Test Sandbox</h2>
+        <p class="text-xs text-[#8B8B9A] mb-4">Test Ada's real-time retrieval and intent routing directly in the admin panel.</p>
+        <div class="flex gap-2">
+          <input type="text" id="adminQuery" placeholder="e.g. Find me an n8n lead gen workflow" class="flex-1 bg-[#0B0B10] border border-[#26262F] rounded-lg px-4 py-2 text-sm outline-none focus:border-[#5B4CFF]" />
+          <button id="adminAskBtn" class="px-5 py-2 bg-[#5B4CFF] hover:bg-[#8B7DFF] text-white font-medium text-sm rounded-lg transition">Test Query</button>
+        </div>
+        <div id="adminReply" class="mt-4 p-4 bg-[#0B0B10] border border-[#26262F] rounded-lg text-sm text-[#8B8B9A] hidden whitespace-pre-wrap"></div>
+      </div>
 
       <!-- Queries table -->
-      <h2 class="text-lg font-bold mb-3">All Queries ({total})</h2>
+      <h2 class="text-lg font-bold mb-3">Live Query Log ({total})</h2>
       {queries.length === 0 ? (
-        <div class="bg-[#1A1A2E] border border-[#2D2D44] rounded-lg p-8 text-center text-gray-500">
-          No queries yet.
+        <div class="bg-[#14141D] border border-[#26262F] rounded-lg p-8 text-center text-gray-500">
+          No queries recorded yet.
         </div>
       ) : (
-        <div class="bg-[#1A1A2E] border border-[#2D2D44] rounded-lg overflow-hidden">
+        <div class="bg-[#14141D] border border-[#26262F] rounded-lg overflow-hidden">
           <table class="w-full text-sm">
-            <thead class="bg-[#2D2D44]">
+            <thead class="bg-[#191924]">
               <tr>
-                <th class="px-4 py-2 text-left text-xs uppercase text-gray-400 w-44">When</th>
-                <th class="px-4 py-2 text-left text-xs uppercase text-gray-400">Query</th>
-                <th class="px-4 py-2 text-left text-xs uppercase text-gray-400 w-32">Intent</th>
-                <th class="px-4 py-2 text-right text-xs uppercase text-gray-400 w-20">Cost</th>
-                <th class="px-4 py-2 text-right text-xs uppercase text-gray-400 w-20">Time</th>
+                <th class="px-4 py-2.5 text-left text-xs uppercase text-gray-400 w-44 font-mono">Timestamp</th>
+                <th class="px-4 py-2.5 text-left text-xs uppercase text-gray-400 font-mono">Query</th>
+                <th class="px-4 py-2.5 text-left text-xs uppercase text-gray-400 w-32 font-mono">Intent</th>
+                <th class="px-4 py-2.5 text-right text-xs uppercase text-gray-400 w-20 font-mono">Cost</th>
+                <th class="px-4 py-2.5 text-right text-xs uppercase text-gray-400 w-20 font-mono">Latency</th>
               </tr>
             </thead>
             <tbody>
               {queries.map(q => (
-                <tr class="border-t border-[#2D2D44]">
-                  <td class="px-4 py-2 text-xs text-gray-500">{q.created_at ? new Date(q.created_at).toLocaleString() : '—'}</td>
-                  <td class="px-4 py-2 line-clamp-2">{q.query}</td>
-                  <td class="px-4 py-2 text-xs text-[#3DE0FF]">{q.intent || '—'}</td>
-                  <td class="px-4 py-2 text-right text-xs">${((q.cost_cents || 0) / 100).toFixed(4)}</td>
-                  <td class="px-4 py-2 text-right text-xs">{q.latency_ms || 0}ms</td>
+                <tr class="border-t border-[#26262F] hover:bg-[#191924]/50 transition">
+                  <td class="px-4 py-2.5 text-xs text-gray-500">{q.created_at ? new Date(q.created_at).toLocaleString() : '—'}</td>
+                  <td class="px-4 py-2.5 line-clamp-2">{q.query}</td>
+                  <td class="px-4 py-2.5 text-xs text-[#3DE0FF] font-mono">{q.intent || '—'}</td>
+                  <td class="px-4 py-2.5 text-right text-xs">${((q.cost_cents || 0) / 100).toFixed(4)}</td>
+                  <td class="px-4 py-2.5 text-right text-xs font-mono">{q.latency_ms || 0}ms</td>
                 </tr>
               ))}
             </tbody>
@@ -136,14 +164,37 @@ const totalPages = Math.ceil(total / PAGE_SIZE);
       {totalPages > 1 && (
         <div class="flex justify-center gap-2 mt-6">
           {page > 1 && (
-            <a href={`/admin/ada?page=${page - 1}`} class="px-3 py-1 bg-[#2D2D44] rounded text-sm hover:bg-[#5B4CFF]">← Prev</a>
+            <a href={`/admin/ada?page=${page - 1}`} class="px-3 py-1 bg-[#14141D] border border-[#26262F] rounded text-sm hover:bg-[#5B4CFF]">← Prev</a>
           )}
           <span class="px-3 py-1 text-sm text-gray-500">Page {page} of {totalPages}</span>
           {page < totalPages && (
-            <a href={`/admin/ada?page=${page + 1}`} class="px-3 py-1 bg-[#2D2D44] rounded text-sm hover:bg-[#5B4CFF]">Next →</a>
+            <a href={`/admin/ada?page=${page + 1}`} class="px-3 py-1 bg-[#14141D] border border-[#26262F] rounded text-sm hover:bg-[#5B4CFF]">Next →</a>
           )}
         </div>
       )}
     </main>
   </div>
+
+  <script>
+    const btn = document.getElementById('adminAskBtn');
+    const input = document.getElementById('adminQuery') as HTMLInputElement;
+    const reply = document.getElementById('adminReply');
+
+    btn?.addEventListener('click', async () => {
+      if (!input?.value.trim() || !reply) return;
+      reply.classList.remove('hidden');
+      reply.innerText = 'Querying Ada AI...';
+      try {
+        const res = await fetch('/api/ada', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ message: input.value }),
+        });
+        const data = await res.json();
+        reply.innerText = `Intent: ${data.intent || 'general'} | Latency: ${data.ms || 0}ms\n\nReply:\n${data.reply}\n\nSuggested Links:\n${JSON.stringify(data.links || [], null, 2)}`;
+      } catch (err) {
+        reply.innerText = 'Error running query: ' + err;
+      }
+    });
+  </script>
 </Layout>

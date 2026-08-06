@@ -1,0 +1,107 @@
+---
+import Layout from '~/layouts/Base.astro';
+export const prerender = false;
+
+const session = Astro.locals.session;
+if (!session) return Astro.redirect('/admin/login');
+---
+
+<Layout title="Homepage Manager | Admin">
+  <div class="flex min-h-screen bg-[#0B0B10] text-[#F2F1F7]">
+    <!-- Sidebar -->
+    <aside class="w-64 bg-[#14141D] border-r border-[#26262F] min-h-screen p-4 shrink-0">
+      <h2 class="text-xl font-bold text-[#C6FF3D] mb-6 font-headline">Admin Control</h2>
+      <nav class="space-y-1 text-sm font-body">
+        <a href="/admin" class="block px-3 py-2 rounded hover:bg-[#191924]">Dashboard</a>
+        <a href="/admin/homepage" class="block px-3 py-2 rounded bg-[#5B4CFF]/20 text-[#C6FF3D] font-medium">Homepage Manager</a>
+        <a href="/admin/wiki" class="block px-3 py-2 rounded hover:bg-[#191924]">Wiki Entries</a>
+        <a href="/admin/marketplace" class="block px-3 py-2 rounded hover:bg-[#191924]">Marketplace</a>
+        <a href="/admin/news" class="block px-3 py-2 rounded hover:bg-[#191924]">News</a>
+        <a href="/admin/ada" class="block px-3 py-2 rounded hover:bg-[#191924]">Ada AI Engine</a>
+        <a href="/admin/settings" class="block px-3 py-2 rounded hover:bg-[#191924]">Settings</a>
+      </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-1 p-6 lg:p-10 max-w-4xl">
+      <div class="flex items-center justify-between mb-8">
+        <div>
+          <h1 class="text-3xl font-bold font-headline">Homepage Customization</h1>
+          <p class="text-sm text-[#8B8B9A] mt-1">Manage live counters, hero text, and featured homepage components in real time.</p>
+        </div>
+        <a href="/" target="_blank" class="px-4 py-2 bg-[#14141D] border border-[#26262F] hover:border-[#5B4CFF] rounded-lg text-sm transition">View Live Homepage ↗</a>
+      </div>
+
+      <div class="bg-[#14141D] border border-[#26262F] rounded-xl p-6 space-y-6">
+        <form id="hpForm" class="space-y-6">
+          <div>
+            <label class="block text-xs uppercase tracking-wider text-[#8B8B9A] mb-2 font-mono">Hero Eyebrow Text</label>
+            <input type="text" id="eyebrowText" value="ADA IS ONLINE · INDEXING 14,382 TOOLS" class="w-full bg-[#0B0B10] border border-[#26262F] rounded-lg px-4 py-2.5 text-sm focus:border-[#5B4CFF] outline-none" />
+            <p class="text-xs text-[#5C5C6B] mt-1">Pulsing badge content at top of hero.</p>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs uppercase tracking-wider text-[#8B8B9A] mb-2 font-mono">Headline Line 1</label>
+              <input type="text" id="headlineLine1" value="The encyclopedia" class="w-full bg-[#0B0B10] border border-[#26262F] rounded-lg px-4 py-2.5 text-sm focus:border-[#5B4CFF] outline-none" />
+            </div>
+            <div>
+              <label class="block text-xs uppercase tracking-wider text-[#8B8B9A] mb-2 font-mono">Headline Line 2 (Gradient)</label>
+              <input type="text" id="headlineLine2" value="of automation is alive." class="w-full bg-[#0B0B10] border border-[#26262F] rounded-lg px-4 py-2.5 text-sm focus:border-[#5B4CFF] outline-none" />
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs uppercase tracking-wider text-[#8B8B9A] mb-2 font-mono">Sub-headline Copy</label>
+            <textarea id="subHeadline" rows="3" class="w-full bg-[#0B0B10] border border-[#26262F] rounded-lg px-4 py-2.5 text-sm focus:border-[#5B4CFF] outline-none resize-none">Ask Ada anything — she reads the whole wiki, the marketplace, and today's launches so you don't have to.</textarea>
+          </div>
+
+          <div>
+            <label class="block text-xs uppercase tracking-wider text-[#8B8B9A] mb-2 font-mono">Top Site Announcement Banner (Optional)</label>
+            <input type="text" id="announcementBanner" placeholder="e.g. ⚡ MCP 2.0 Protocol entries updated — explore the new standard" class="w-full bg-[#0B0B10] border border-[#26262F] rounded-lg px-4 py-2.5 text-sm focus:border-[#5B4CFF] outline-none" />
+          </div>
+
+          <div class="flex items-center gap-3 pt-2">
+            <input type="checkbox" id="showLiveStats" checked class="w-4 h-4 accent-[#C6FF3D] rounded cursor-pointer" />
+            <label for="showLiveStats" class="text-sm font-medium cursor-pointer">Enable Live Auto-Counting Stats Strip</label>
+          </div>
+
+          <div class="pt-4 border-t border-[#26262F] flex items-center justify-between">
+            <span id="saveStatus" class="text-xs text-[#3DFFB0] hidden">Settings saved successfully!</span>
+            <button type="submit" class="px-6 py-2.5 bg-[#5B4CFF] hover:bg-[#8B7DFF] text-white font-medium text-sm rounded-lg transition shadow-lg shadow-[#5B4CFF]/20">Save Changes</button>
+          </div>
+        </form>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    document.getElementById('hpForm')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const statusEl = document.getElementById('saveStatus');
+      const payload = {
+        eyebrow_text: (document.getElementById('eyebrowText') as HTMLInputElement).value,
+        hero_headline_line1: (document.getElementById('headlineLine1') as HTMLInputElement).value,
+        hero_headline_line2: (document.getElementById('headlineLine2') as HTMLInputElement).value,
+        sub_headline: (document.getElementById('subHeadline') as HTMLTextAreaElement).value,
+        announcement_banner: (document.getElementById('announcementBanner') as HTMLInputElement).value,
+        show_live_stats: (document.getElementById('showLiveStats') as HTMLInputElement).checked,
+      };
+
+      try {
+        const res = await fetch('/api/admin/homepage/settings', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        if (res.ok && statusEl) {
+          statusEl.classList.remove('hidden');
+          setTimeout(() => statusEl.classList.add('hidden'), 3000);
+        }
+      } catch (err) {
+        alert('Failed to save homepage settings');
+      }
+    });
+  </script>
+</Layout>

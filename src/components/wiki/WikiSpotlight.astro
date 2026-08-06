@@ -1,272 +1,267 @@
 ---
 /**
- * WikiSpotlight.astro — category-filtered wiki grid (replaces WikiGrid)
- * Per master plan §3 homepage layer 5 ("From the wiki"):
- *   "4–6 featured/most-read entries, styled like Wikipedia's 'Did you know?' box."
- *
- * Adds client-side category filter chips (no page reload) on top of the
- * previous grid. Categories map 1:1 to `config.ts` enum:
- *   agents · frameworks · protocols · models · companies · concepts
- *
- * All entries are rendered server-side with data-category attributes; the
- * filter chips hide/show via a tiny inline script. No hydration cost.
+ * WikiSpotlight.astro — Featured wiki entries with category filter.
+ * Replaces WikiGrid.astro. Import as WikiSpotlight in index.astro.
  */
 import { getCollection, type CollectionEntry } from 'astro:content';
 
 type Wiki = CollectionEntry<'wiki'>;
 
-const all: Wiki[] = await getCollection('wiki');
+const all = await getCollection('wiki').catch(() => [] as Wiki[]);
+const sorted = all.sort((a, b) => new Date(b.data.updated).getTime() - new Date(a.data.updated).getTime());
+const top = sorted.slice(0, 6);
 
-// Sort by updated desc, take top 9 (so filter has enough density)
-const entries: Wiki[] = all
-  .sort((a, b) => new Date(b.data.updated).getTime() - new Date(a.data.updated).getTime())
-  .slice(0, 9);
+const categories = ['all', 'agents', 'frameworks', 'protocols', 'models', 'companies', 'concepts'] as const;
+const catColors: Record<string, string> = {
+  agents: 'var(--lime)',
+  frameworks: 'var(--cyan)',
+  protocols: 'var(--indigo-soft)',
+  models: 'var(--amber)',
+  companies: 'var(--mint)',
+  concepts: 'var(--muted)',
+};
 
-// Derive category list from data + canonical order from config.ts
-const canonicalOrder = ['agents', 'frameworks', 'protocols', 'models', 'companies', 'concepts'] as const;
-const presentCategories = canonicalOrder.filter((c) => entries.some((e) => e.data.category === c));
-
-function truncate(s: string | undefined, n: number) {
-  if (!s) return '';
-  return s.length > n ? s.slice(0, n).trim() + '…' : s;
+function isNew(dateStr: string) {
+  const d = new Date(dateStr);
+  return (Date.now() - d.getTime()) < 7 * 24 * 60 * 60 * 1000;
+}
+function daysAgo(dateStr: string) {
+  const d = Math.floor((Date.now() - new Date(dateStr).getTime()) / (1000 * 60 * 60 * 24));
+  if (d === 0) return 'today';
+  if (d === 1) return '1d ago';
+  return `${d}d ago`;
 }
 ---
 
-<section id="wiki" aria-labelledby="wiki-head">
+<section class="wiki-section" id="wiki">
   <header class="section-head">
     <div>
-      <p class="eyebrow">FROM THE WIKI</p>
-      <h2 id="wiki-head">Did you know?</h2>
+      <h2>From the wiki</h2>
+      <p class="section-sub">{all.length} reference entries — neutral, sourced, updated.</p>
     </div>
-    <a class="see-all" href="/wiki">Open the full index →</a>
+    <a class="see-all" href="/wiki">Open full index →</a>
   </header>
 
-  {presentCategories.length > 0 && (
-    <div class="filters" role="tablist" aria-label="Wiki categories">
-      <button class="filter active" data-cat="all" role="tab" aria-selected="true">All</button>
-      {presentCategories.map((c) => (
-        <button class="filter" data-cat={c} role="tab" aria-selected="false">{c}</button>
+  <!-- Category tabs -->
+  {all.length > 0 && (
+    <div class="wiki-tabs" role="tablist" aria-label="Filter wiki by category">
+      {categories.map(c => (
+        <button
+          class={`wiki-tab ${c === 'all' ? 'active' : ''}`}
+          data-cat={c}
+          role="tab"
+          aria-selected={c === 'all' ? 'true' : 'false'}
+        >
+          {c === 'all' ? 'All' : c.charAt(0).toUpperCase() + c.slice(1)}
+        </button>
       ))}
     </div>
   )}
 
-  {entries.length === 0 ? (
-    <div class="empty">
-      <p>The wiki is just getting started. We're seeding the highest-value entries first.</p>
-      <a class="empty-cta" href="/wiki">Browse what's live →</a>
+  <!-- Cards grid -->
+  {top.length === 0 ? (
+    <div class="wiki-empty">
+      <p>Wiki seeding in progress — first entries coming soon.</p>
     </div>
   ) : (
-    <div class="wiki-grid">
-      {entries.map((entry) => (
+    <div class="wiki-grid" id="wikiCards">
+      {top.map(entry => (
         <a
           class="wiki-card"
           href={`/wiki/${entry.data.category}/${entry.slug}`}
-          data-category={entry.data.category}
+          data-cat={entry.data.category}
+          style={`--cat-color: ${catColors[entry.data.category] ?? 'var(--muted)'}`}
         >
-          <div class="card-top">
-            <span class="eyebrow-tag">{entry.data.category}</span>
-            {entry.data.infobox?.kind && <span class="kind">{entry.data.infobox.kind}</span>}
+          <div class="wc-top">
+            <span class="wc-cat">{entry.data.category}</span>
+            <div class="wc-badges">
+              {isNew(entry.data.created) && <span class="badge-new">NEW</span>}
+              <span class="wc-time">{daysAgo(entry.data.updated)}</span>
+            </div>
           </div>
           <h4>{entry.data.title}</h4>
-          <p>{truncate(entry.data.summary ?? '', 160)}</p>
-          {entry.data.tags.length > 0 && (
-            <div class="tags">
-              {entry.data.tags.slice(0, 3).map((t) => <span class="tag">#{t}</span>)}
-            </div>
-          )}
+          <p>{entry.data.summary ?? ''}</p>
+          <span class="wc-cta">Read entry →</span>
         </a>
       ))}
     </div>
   )}
-
-  {entries.length > 0 && (
-    <p class="no-results" hidden>No entries in this category yet — check back soon.</p>
-  )}
 </section>
 
 <script>
-  const filters = document.querySelectorAll<HTMLButtonElement>('.filter');
-  const cards = document.querySelectorAll<HTMLElement>('.wiki-card');
-  const noResults = document.querySelector<HTMLElement>('.no-results');
+(() => {
+  function init() {
+    const tabs = document.querySelectorAll<HTMLButtonElement>('.wiki-tab');
+    const cards = document.querySelectorAll<HTMLElement>('.wiki-card');
+    if (!tabs.length) return;
 
-  if (filters.length && cards.length) {
-    filters.forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const cat = btn.dataset.cat;
-        filters.forEach((b) => {
-          b.classList.remove('active');
-          b.setAttribute('aria-selected', 'false');
-        });
-        btn.classList.add('active');
-        btn.setAttribute('aria-selected', 'true');
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        tabs.forEach(t => { t.classList.remove('active'); t.setAttribute('aria-selected', 'false'); });
+        tab.classList.add('active');
+        tab.setAttribute('aria-selected', 'true');
 
-        let visible = 0;
-        cards.forEach((card) => {
-          const show = cat === 'all' || card.dataset.category === cat;
-          card.style.display = show ? '' : 'none';
-          if (show) visible++;
+        const cat = tab.dataset.cat || 'all';
+        cards.forEach(card => {
+          const show = cat === 'all' || card.dataset.cat === cat;
+          card.style.display = show ? 'flex' : 'none';
+          if (show) {
+            card.style.opacity = '0';
+            requestAnimationFrame(() => {
+              card.style.transition = 'opacity 0.22s ease';
+              card.style.opacity = '1';
+            });
+          }
         });
-        if (noResults) noResults.hidden = visible > 0;
       });
     });
   }
+  document.addEventListener('astro:page-load', init);
+  init();
+})();
 </script>
 
 <style>
-  section {
-    padding: 100px 36px;
+  .wiki-section {
+    padding: 80px 36px;
     max-width: var(--max-content);
     margin: 0 auto;
-    position: relative;
   }
 
   .section-head {
     display: flex;
     align-items: flex-end;
     justify-content: space-between;
-    margin-bottom: 28px;
+    margin-bottom: 24px;
     flex-wrap: wrap;
     gap: 16px;
   }
-  .eyebrow {
-    font-family: var(--font-mono);
-    font-size: 11px;
-    color: var(--muted-2);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    margin-bottom: 8px;
-  }
-  .section-head h2 {
-    font-size: clamp(26px, 3vw, 36px);
-  }
+  .section-head h2 { font-size: clamp(24px, 3vw, 34px); }
+  .section-sub { color: var(--muted); font-size: 14px; margin-top: 4px; }
   .see-all {
     font-family: var(--font-mono);
     font-size: 13px;
     color: var(--cyan);
+    text-decoration: none;
+    white-space: nowrap;
+    transition: opacity 0.15s;
+  }
+  .see-all:hover { opacity: 0.7; }
+
+  /* Tabs */
+  .wiki-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 22px;
+    flex-wrap: wrap;
+  }
+  .wiki-tab {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    padding: 6px 14px;
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.18s;
+  }
+  .wiki-tab:hover { color: var(--text); border-color: var(--muted); }
+  .wiki-tab.active {
+    background: var(--surface);
+    color: var(--cyan);
+    border-color: var(--cyan);
+  }
+  .wiki-tab:focus-visible { outline: 2px solid var(--lime); outline-offset: 2px; }
+
+  /* Grid */
+  .wiki-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+
+  .wiki-card {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 22px;
+    text-decoration: none;
+    color: inherit;
+    position: relative;
+    transition: border-color 0.2s, transform 0.2s;
+    border-top: 2px solid var(--cat-color, var(--border));
+  }
+  .wiki-card:hover {
+    border-color: var(--cat-color, var(--indigo-soft));
+    transform: translateY(-2px);
+  }
+  .wiki-card:focus-visible { outline: 2px solid var(--lime); outline-offset: 2px; }
+
+  .wc-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .wc-cat {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--cat-color, var(--muted));
+  }
+
+  .wc-badges {
     display: flex;
     align-items: center;
     gap: 6px;
   }
 
-  .filters {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 7px;
-    margin-bottom: 28px;
-  }
-  .filter {
+  .badge-new {
     font-family: var(--font-mono);
-    font-size: 12px;
-    color: var(--muted);
-    background: transparent;
-    border: 1px solid var(--border);
-    padding: 6px 14px;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--lime);
+    background: rgba(198,255,61,0.12);
+    padding: 2px 6px;
     border-radius: var(--radius-pill);
-    cursor: pointer;
-    transition: all 0.18s ease;
-    text-transform: capitalize;
-  }
-  .filter:hover {
-    color: var(--text);
-    border-color: var(--muted);
-  }
-  .filter.active {
-    color: var(--bg);
-    background: var(--lime);
-    border-color: var(--lime);
-    font-weight: 600;
   }
 
-  .empty {
+  .wc-time {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--muted-2);
+  }
+
+  .wiki-card h4 { font-size: 16px; font-weight: 600; color: var(--text); line-height: 1.3; }
+  .wiki-card p { font-size: 13px; color: var(--muted); line-height: 1.55; flex: 1; }
+
+  .wc-cta {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--cat-color, var(--cyan));
+    margin-top: auto;
+    opacity: 0;
+    transform: translateX(-4px);
+    transition: all 0.2s;
+  }
+  .wiki-card:hover .wc-cta { opacity: 1; transform: translateX(0); }
+
+  .wiki-empty {
     text-align: center;
-    padding: 40px;
+    padding: 48px;
     color: var(--muted);
     background: var(--surface);
     border: 1px dashed var(--border);
     border-radius: var(--radius);
   }
-  .empty-cta {
-    display: inline-block;
-    margin-top: 12px;
-    color: var(--lime);
-    text-decoration: underline;
-  }
 
-  .wiki-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 18px;
-  }
-  @media (max-width: 900px) {
-    .wiki-grid { grid-template-columns: 1fr 1fr; }
-  }
-  @media (max-width: 620px) {
-    .wiki-grid { grid-template-columns: 1fr; }
-  }
-
-  .wiki-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 22px;
-    transition: all 0.22s ease;
-    color: inherit;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-  .wiki-card:hover {
-    border-color: var(--cyan);
-    transform: translateY(-3px);
-    box-shadow: 0 8px 32px rgba(61, 224, 255, 0.08);
-  }
-
-  .card-top {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 4px;
-  }
-  .eyebrow-tag {
-    font-family: var(--font-mono);
-    font-size: 10.5px;
-    color: var(--cyan);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-  }
-  .kind {
-    font-family: var(--font-mono);
-    font-size: 10.5px;
-    color: var(--muted-2);
-  }
-
-  .wiki-card h4 {
-    font-size: 17px;
-    line-height: 1.3;
-  }
-  .wiki-card p {
-    color: var(--muted);
-    font-size: 13.5px;
-    line-height: 1.6;
-    flex: 1;
-  }
-  .tags {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    margin-top: 6px;
-  }
-  .tag {
-    font-family: var(--font-mono);
-    font-size: 11px;
-    color: var(--muted-2);
-  }
-
-  .no-results {
-    text-align: center;
-    padding: 32px;
-    color: var(--muted-2);
-    font-family: var(--font-mono);
-    font-size: 13px;
-  }
+  @media (max-width: 900px) { .wiki-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 580px) { .wiki-grid { grid-template-columns: 1fr; } }
 </style>
