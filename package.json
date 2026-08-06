@@ -13,7 +13,7 @@
     "embed": "tsx scripts/embed-vault.ts",
     "seed-admin": "tsx scripts/seed-admin.ts",
     "start": "node index.js",
-    "postinstall": "npm rebuild better-sqlite3"
+    "postinstall": "npm rebuild better-sqlite3 @node-rs/argon2"
   },
   "dependencies": {
     "@astrojs/check": "^0.9.4",

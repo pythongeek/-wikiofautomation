@@ -45,13 +45,13 @@ export default defineConfig({
   ],
   vite: {
     ssr: {
-      // Keep better-sqlite3 external so its native binding (.node) is
-      // loaded at runtime from node_modules instead of being bundled.
-      external: ['better-sqlite3'],
+      // Keep native C++ modules external so their native bindings (.node) are
+      // loaded at runtime from node_modules instead of being bundled by Vite.
+      external: ['better-sqlite3', '@node-rs/argon2'],
       noExternal: [],
     },
     optimizeDeps: {
-      exclude: ['better-sqlite3'],
+      exclude: ['better-sqlite3', '@node-rs/argon2'],
     },
   },
 });
