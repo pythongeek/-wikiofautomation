@@ -1,0 +1,21 @@
+# Hostinger Node.js App Gateway for Wiki of Automation
+<IfModule mod_passenger.c>
+    PassengerEnabled on
+    PassengerAppType node
+    PassengerStartupFile index.js
+</IfModule>
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /
+
+    # Serve static assets directly if file exists
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+
+    # Handle client router fallback for SPA routes
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^(.*)$ /index.html [L]
+</IfModule>
