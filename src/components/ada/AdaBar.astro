@@ -48,7 +48,7 @@ const placeholders = [
 </div>
 
 <script is:inline define:vars={{ placeholders }}>
-(() => {
+function initAdaBar() {
   const wrap = document.getElementById('adaWrap');
   const input = document.getElementById('askField');
   const send = document.getElementById('askSend');
@@ -56,6 +56,9 @@ const placeholders = [
   const suggestEl = document.getElementById('adaSuggestions');
   const adaInput = document.getElementById('adaInput');
   if (!wrap || !input || !send || !replyEl || !suggestEl || !adaInput) return;
+
+  if (wrap.dataset.initialized === 'true') return;
+  wrap.dataset.initialized = 'true';
 
   // ── Typewriter placeholder ──────────────────────────────────────────
   let pi = 0, ci = 0, del = false;
@@ -296,7 +299,14 @@ const placeholders = [
 
   // Expose submit globally so Hero intent chips can call it
   window.__adaSubmit = doSubmit;
-})();
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initAdaBar);
+} else {
+  initAdaBar();
+}
+document.addEventListener('astro:page-load', initAdaBar);
 </script>
 
 <style>

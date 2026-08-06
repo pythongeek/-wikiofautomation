@@ -77,7 +77,7 @@
 </div>
 
 <script>
-(() => {
+function initAdaFloat() {
   const btn = document.getElementById('adaFloatBtn') as HTMLButtonElement | null;
   const panel = document.getElementById('adaFloatPanel') as HTMLElement | null;
   const closeBtn = document.getElementById('adaFloatClose') as HTMLButtonElement | null;
@@ -85,6 +85,9 @@
   const inputEl = document.getElementById('adaFloatInput') as HTMLInputElement | null;
   const sendBtn = document.getElementById('adaFloatSend') as HTMLButtonElement | null;
   if (!btn || !panel || !messagesEl || !inputEl || !sendBtn || !closeBtn) return;
+
+  if (btn.dataset.initialized === 'true') return;
+  btn.dataset.initialized = 'true';
 
   const iconClosed = btn.querySelector('.afb-icon-closed') as HTMLElement | null;
   const iconOpen = btn.querySelector('.afb-icon-open') as HTMLElement | null;
@@ -313,7 +316,14 @@
   function scrollBottom() {
     if (messagesEl) messagesEl.scrollTop = messagesEl.scrollHeight;
   }
-})();
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initAdaFloat);
+} else {
+  initAdaFloat();
+}
+document.addEventListener('astro:page-load', initAdaFloat);
 </script>
 
 <style>
