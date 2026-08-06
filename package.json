@@ -7,7 +7,7 @@
   "description": "wiki of automation — encyclopedia + marketplace + newsroom for the automation economy",
   "scripts": {
     "dev": "astro dev --host 0.0.0.0",
-    "build": "astro check && astro build && node -e \"fs.cpSync('dist/server','dist/client/dist/server',{recursive:true})\"",
+    "build": "astro check && astro build && node -e \"fs.cpSync('dist/client','dist',{recursive:true})\"",
     "preview": "astro preview --host 0.0.0.0",
     "astro": "astro",
     "embed": "tsx scripts/embed-vault.ts",
