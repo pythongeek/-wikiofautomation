@@ -3,6 +3,7 @@
   "type": "module",
   "version": "0.1.0",
   "private": true,
+  "main": "dist/server/entry.mjs",
   "description": "wiki of automation — encyclopedia + marketplace + newsroom for the automation economy",
   "scripts": {
     "dev": "astro dev --host 0.0.0.0",
