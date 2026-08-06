@@ -171,14 +171,19 @@
   }
 
   async function clientAdaFallback(query: string) {
-    const apiKey = import.meta.env.PUBLIC_MINIMAX_API_KEY || import.meta.env.MINIMAX_API_KEY;
+    let apiKey = import.meta.env.PUBLIC_MINIMAX_API_KEY || import.meta.env.MINIMAX_API_KEY;
+    if (!apiKey && typeof localStorage !== 'undefined') {
+      apiKey = localStorage.getItem('MINIMAX_API_KEY') || '';
+    }
+
     const baseUrl = (import.meta.env.PUBLIC_MINIMAX_BASE_URL || 'https://api.minimax.io/v1').replace(/\/+$/, '');
     const rawModel = import.meta.env.PUBLIC_MINIMAX_MODEL || 'MiniMax-M3';
     const model = rawModel.replace(/^minimax\//i, '');
 
     if (!apiKey) {
       return {
-        reply: "Ada AI is online! Connect MiniMax API key in settings or environment to enable live dynamic queries.",
+        reply: "Ada AI is active! Provide your MiniMax API Key below to enable live dynamic queries:",
+        needApiKey: true,
         links: [{ url: '/wiki', anchor: 'Browse Encyclopedia' }, { url: '/marketplace', anchor: 'Marketplace' }]
       };
     }
@@ -237,7 +242,7 @@
     messagesEl.appendChild(div);
   }
 
-  function appendAdaReply(data: { reply?: string; links?: {url:string; anchor?:string}[] }) {
+  function appendAdaReply(data: { reply?: string; links?: {url:string; anchor?:string}[]; needApiKey?: boolean }) {
     if (!messagesEl) return;
     const div = document.createElement('div');
     div.className = 'afp-msg afp-msg--ada';
@@ -247,8 +252,32 @@
       ? `<div class="afp-chips">${links.map(l =>
           `<a class="afp-chip" href="${esc(l.url)}">${esc(l.anchor || l.url)}</a>`
         ).join('')}</div>` : '';
-    div.innerHTML = `<p>${text}</p>${chips}`;
+
+    let keyForm = '';
+    if (data.needApiKey) {
+      keyForm = `<div class="afp-key-box" style="margin-top:10px;display:flex;gap:6px;">
+        <input type="password" class="afp-key-input" placeholder="Paste MiniMax API Key" style="flex:1;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#fff;border-radius:6px;padding:6px 10px;font-size:12px;" />
+        <button type="button" class="afp-key-save" style="background:var(--lime);color:#000;border:none;border-radius:6px;padding:6px 12px;font-weight:600;font-size:12px;cursor:pointer;">Save</button>
+      </div>`;
+    }
+
+    div.innerHTML = `<p>${text}</p>${keyForm}${chips}`;
     messagesEl.appendChild(div);
+
+    if (data.needApiKey) {
+      const saveBtn = div.querySelector('.afp-key-save') as HTMLButtonElement | null;
+      const keyInput = div.querySelector('.afp-key-input') as HTMLInputElement | null;
+      if (saveBtn && keyInput) {
+        saveBtn.addEventListener('click', () => {
+          const val = keyInput.value.trim();
+          if (val) {
+            localStorage.setItem('MINIMAX_API_KEY', val);
+            appendMsg('API key saved! Resending query…', 'ada');
+            sendMessage();
+          }
+        });
+      }
+    }
   }
 
   function scrollBottom() {
