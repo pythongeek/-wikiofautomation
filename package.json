@@ -3,7 +3,7 @@
   "type": "module",
   "version": "0.1.0",
   "private": true,
-  "main": "dist/server/entry.mjs",
+  "main": "index.js",
   "description": "wiki of automation — encyclopedia + marketplace + newsroom for the automation economy",
   "scripts": {
     "dev": "astro dev --host 0.0.0.0",
@@ -12,7 +12,7 @@
     "astro": "astro",
     "embed": "tsx scripts/embed-vault.ts",
     "seed-admin": "tsx scripts/seed-admin.ts",
-    "start": "node ./dist/server/entry.mjs",
+    "start": "node index.js",
     "postinstall": "npm rebuild better-sqlite3"
   },
   "dependencies": {
