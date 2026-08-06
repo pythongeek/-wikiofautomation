@@ -140,23 +140,77 @@
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ message: q }),
       });
-      const data = await res.json();
+      let data: { reply?: string; links?: { url: string; anchor?: string }[]; error?: string } | null = null;
+      if (res.ok) {
+        data = await res.json();
+      } else {
+        data = await clientAdaFallback(q);
+      }
 
-      // Replace loading bubble
       const loadingEl = document.getElementById(loadingId);
       if (loadingEl) loadingEl.remove();
 
-      if (!res.ok || data.error) {
-        appendMsg(data.error || 'Something went wrong. Try again.', 'ada error');
+      if (!data || data.error) {
+        appendMsg(data?.error || 'Something went wrong. Try again.', 'ada error');
       } else {
         appendAdaReply(data);
       }
     } catch {
-      const loadingEl = document.getElementById(loadingId);
-      if (loadingEl) loadingEl.remove();
-      appendMsg('Network error. Check connection and retry.', 'ada error');
+      try {
+        const fallbackData = await clientAdaFallback(q);
+        const loadingEl = document.getElementById(loadingId);
+        if (loadingEl) loadingEl.remove();
+        appendAdaReply(fallbackData);
+      } catch (e) {
+        const loadingEl = document.getElementById(loadingId);
+        if (loadingEl) loadingEl.remove();
+        appendMsg('Network error. Check connection and retry.', 'ada error');
+      }
     }
     scrollBottom();
+  }
+
+  async function clientAdaFallback(query: string) {
+    const apiKey = import.meta.env.PUBLIC_MINIMAX_API_KEY || import.meta.env.MINIMAX_API_KEY;
+    if (!apiKey) {
+      return {
+        reply: "Ada AI dynamic endpoint is offline on static hosting. Set `PUBLIC_MINIMAX_API_KEY` in environment variables or connect Node SSR container.",
+        links: [{ url: '/wiki', anchor: 'Browse Encyclopedia' }, { url: '/marketplace', anchor: 'Marketplace' }]
+      };
+    }
+
+    const res = await fetch('https://api.minimax.io/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: 'MiniMax-M3',
+        temperature: 0.3,
+        max_tokens: 600,
+        messages: [
+          { role: 'system', content: 'You are Ada, the AI assistant for Wiki of Automation (wikiofautomation.com). Answer user questions about automation, AI agents, n8n, MCP, and workflows concisely with helpful links.' },
+          { role: 'user', content: query },
+        ],
+      }),
+    });
+
+    if (!res.ok) {
+      throw new Error(`MiniMax API returned ${res.status}`);
+    }
+
+    const json = await res.json();
+    let text = json.choices?.[0]?.message?.content || 'No answer generated.';
+    text = text.replace(/^```(?:markdown)?/i, '').replace(/```$/, '').trim();
+
+    return {
+      reply: text,
+      links: [
+        { url: '/wiki', anchor: 'Encyclopedia' },
+        { url: '/marketplace', anchor: 'Marketplace' }
+      ]
+    };
   }
 
   sendBtn.addEventListener('click', sendMessage);

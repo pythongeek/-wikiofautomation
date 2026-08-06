@@ -154,15 +154,69 @@ const placeholders = [
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ message: q }),
       });
-      const data = await res.json();
-      if (!res.ok || data.error) {
-        replyEl.innerHTML = renderError(data.error || 'Ada couldn\'t reach the knowledge base. Try again in a moment.');
+      let data = null;
+      if (res.ok) {
+        data = await res.json();
+      } else {
+        data = await clientAdaBarFallback(q);
+      }
+
+      if (!data || data.error) {
+        replyEl.innerHTML = renderError(data?.error || 'Ada couldn\'t reach the knowledge base. Try again in a moment.');
         return;
       }
       replyEl.innerHTML = renderReply(data, q);
     } catch {
-      replyEl.innerHTML = renderError('Network error — check your connection and try again.');
+      try {
+        const fallbackData = await clientAdaBarFallback(q);
+        replyEl.innerHTML = renderReply(fallbackData, q);
+      } catch {
+        replyEl.innerHTML = renderError('Network error — check your connection and try again.');
+      }
     }
+  }
+
+  async function clientAdaBarFallback(query) {
+    const apiKey = import.meta.env.PUBLIC_MINIMAX_API_KEY || import.meta.env.MINIMAX_API_KEY;
+    if (!apiKey) {
+      return {
+        reply: "Ada AI dynamic endpoint is offline on static hosting. Set `PUBLIC_MINIMAX_API_KEY` in environment variables or connect Node SSR container.",
+        links: [{ url: '/wiki', anchor: 'Browse Encyclopedia' }, { url: '/marketplace', anchor: 'Marketplace' }]
+      };
+    }
+
+    const res = await fetch('https://api.minimax.io/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: 'MiniMax-M3',
+        temperature: 0.3,
+        max_tokens: 600,
+        messages: [
+          { role: 'system', content: 'You are Ada, the AI assistant for Wiki of Automation (wikiofautomation.com). Answer user questions about automation, AI agents, n8n, MCP, and workflows concisely with helpful links.' },
+          { role: 'user', content: query },
+        ],
+      }),
+    });
+
+    if (!res.ok) {
+      throw new Error(`MiniMax API returned ${res.status}`);
+    }
+
+    const json = await res.json();
+    let text = json.choices?.[0]?.message?.content || 'No answer generated.';
+    text = text.replace(/^```(?:markdown)?/i, '').replace(/```$/, '').trim();
+
+    return {
+      reply: text,
+      links: [
+        { url: '/wiki', anchor: 'Encyclopedia' },
+        { url: '/marketplace', anchor: 'Marketplace' }
+      ]
+    };
   }
 
   // ── Render helpers ──────────────────────────────────────────────────
