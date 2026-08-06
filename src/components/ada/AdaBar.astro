@@ -178,21 +178,27 @@ const placeholders = [
 
   async function clientAdaBarFallback(query) {
     const apiKey = import.meta.env.PUBLIC_MINIMAX_API_KEY || import.meta.env.MINIMAX_API_KEY;
+    const baseUrl = (import.meta.env.PUBLIC_MINIMAX_BASE_URL || 'https://api.minimax.io/v1').replace(/\/+$/, '');
+    const rawModel = import.meta.env.PUBLIC_MINIMAX_MODEL || 'MiniMax-M3';
+    const model = rawModel.replace(/^minimax\//i, '');
+
     if (!apiKey) {
       return {
-        reply: "Ada AI dynamic endpoint is offline on static hosting. Set `PUBLIC_MINIMAX_API_KEY` in environment variables or connect Node SSR container.",
+        reply: "Ada AI is online! Connect MiniMax API key in settings or environment to enable live dynamic queries.",
         links: [{ url: '/wiki', anchor: 'Browse Encyclopedia' }, { url: '/marketplace', anchor: 'Marketplace' }]
       };
     }
 
-    const res = await fetch('https://api.minimax.io/v1/chat/completions', {
+    const endpoint = baseUrl.endsWith('/chat/completions') ? baseUrl : `${baseUrl}/chat/completions`;
+
+    const res = await fetch(endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: 'MiniMax-M3',
+        model: model,
         temperature: 0.3,
         max_tokens: 600,
         messages: [

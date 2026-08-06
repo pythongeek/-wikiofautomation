@@ -44,6 +44,11 @@ export default defineConfig({
     pagefind(),
   ],
   vite: {
+    define: {
+      'import.meta.env.PUBLIC_MINIMAX_API_KEY': JSON.stringify(process.env.PUBLIC_MINIMAX_API_KEY || process.env.MINIMAX_API_KEY || process.env.LLM_API_KEY || ''),
+      'import.meta.env.PUBLIC_MINIMAX_BASE_URL': JSON.stringify(process.env.PUBLIC_MINIMAX_BASE_URL || process.env.MINIMAX_BASE_URL || process.env.LLM_API_URL || 'https://api.minimax.io/v1'),
+      'import.meta.env.PUBLIC_MINIMAX_MODEL': JSON.stringify(process.env.PUBLIC_MINIMAX_MODEL || process.env.MINIMAX_MODEL || process.env.LLM_MODEL || 'MiniMax-M3'),
+    },
     ssr: {
       // Keep native C++ modules external so their native bindings (.node) are
       // loaded at runtime from node_modules instead of being bundled by Vite.
