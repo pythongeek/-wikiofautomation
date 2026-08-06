@@ -183,9 +183,40 @@ const placeholders = [
     const model = rawModel.replace(/^minimax\//i, '');
 
     if (!apiKey) {
+      const q = query.toLowerCase();
+      if (/n8n/i.test(q)) {
+        return {
+          reply: "n8n is a source-available, fair-code workflow automation platform. It allows developers and automation teams to visually connect apps, APIs, and AI models with custom JavaScript or Python nodes.",
+          links: [{ url: '/wiki/frameworks/n8n', anchor: 'n8n Wiki Guide' }, { url: '/marketplace/workflows', anchor: 'n8n Workflows' }]
+        };
+      }
+      if (/mcp|model context protocol/i.test(q)) {
+        return {
+          reply: "Model Context Protocol (MCP) is an open standard created by Anthropic that enables AI models to interact with local tools, APIs, and databases through standardized JSON-RPC interfaces.",
+          links: [{ url: '/wiki/protocols/model-context-protocol', anchor: 'MCP Protocol Guide' }, { url: '/wiki/compare', anchor: 'Tool Comparisons' }]
+        };
+      }
+      if (/agent|agents/i.test(q)) {
+        return {
+          reply: "AI Agents are autonomous software entities that plan, execute multi-step tasks, use external tools, and adapt to feedback to automate complex workflows.",
+          links: [{ url: '/marketplace/agents', anchor: 'Explore AI Agents' }, { url: '/wiki/agents', anchor: 'Agents Wiki' }]
+        };
+      }
+      if (/workflow|zapier|make/i.test(q)) {
+        return {
+          reply: "Automation Workflows connect apps and webhooks into automated execution chains. Discover pre-built n8n and Zapier templates in our marketplace.",
+          links: [{ url: '/marketplace/workflows', anchor: 'Browse Workflows' }, { url: '/marketplace/publish', anchor: 'Submit Workflow' }]
+        };
+      }
+      if (/hi|hello|hey|who/i.test(q)) {
+        return {
+          reply: "Hi! I'm Ada, your AI assistant for Wiki of Automation. Ask me anything about AI agents, n8n, MCP protocols, models, or automation news!",
+          links: [{ url: '/wiki', anchor: 'Encyclopedia' }, { url: '/marketplace', anchor: 'Marketplace' }]
+        };
+      }
       return {
-        reply: "Ada AI is online! Connect MiniMax API key in settings or environment to enable live dynamic queries.",
-        links: [{ url: '/wiki', anchor: 'Browse Encyclopedia' }, { url: '/marketplace', anchor: 'Marketplace' }]
+        reply: `Here are the top encyclopedia resources for "${query}":`,
+        links: [{ url: '/wiki', anchor: 'Search Encyclopedia' }, { url: '/marketplace', anchor: 'Automation Marketplace' }, { url: '/news', anchor: 'Automation News' }]
       };
     }
 
